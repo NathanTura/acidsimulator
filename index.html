@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Psychedelic Camera Tapestry v2.3 (Mobile Focus)</title>
+    <title>Psychedelic Camera Tapestry v2.5 (Melter Stretch)</title>
     <style>
         body, html {
             margin: 0;
@@ -179,12 +179,12 @@
 
     <div id="container">
         <div id="start-overlay">
-            <h1 style="color:white; margin-bottom: 30px; font-family: 'Courier New'; text-align: center;">ACID_CAM_v2.3</h1>
+            <h1 style="color:white; margin-bottom: 30px; font-family: 'Courier New'; text-align: center;">ACID_CAM_v2.5</h1>
             <button id="start-btn" onclick="initExperience()">ENTER THE VOID</button>
             <div id="error-msg"></div>
         </div>
 
-        <div id="title-overlay">ACID_CAM_v2.3</div>
+        <div id="title-overlay">ACID_CAM_v2.5</div>
         
         <video id="videoElement" autoplay playsinline muted></video>
         <canvas id="canvasElement"></canvas>
@@ -321,7 +321,7 @@
 
         // --- VISUAL EFFECTS ---
 
-        // MODE 0: ENHANCED WEAVER (More aggressive mobile distortion)
+        // MODE 0: ENHANCED WEAVER 
         function effectWeaver() {
             ctx.globalCompositeOperation = 'source-over';
             ctx.fillStyle = `rgba(0, 0, 0, 0.03)`; 
@@ -330,9 +330,8 @@
             ctx.save();
             ctx.translate(width / 2, height / 2);
             
-            // Doubled rotation speed and increased wobble for mobile visibility
             ctx.rotate(Math.sin(frameCount * 0.02) * 0.3); 
-            const scale = 1 + Math.sin(frameCount * 0.04) * 0.1; // Increased pulse size
+            const scale = 1 + Math.sin(frameCount * 0.04) * 0.1; 
             ctx.scale(scale, scale);
             
             if (video.readyState >= 2) {
@@ -345,66 +344,87 @@
             }
             ctx.restore();
             
-            // Stronger echo/trailing layer
             ctx.globalCompositeOperation = 'lighter';
             ctx.save();
             ctx.translate(width/2, height/2);
-            ctx.rotate(0.04); // Clearer spiral path
+            ctx.rotate(0.04); 
             ctx.scale(1.03, 1.03); 
-            ctx.globalAlpha = 0.8; // More opaque trail
+            ctx.globalAlpha = 0.8;
             ctx.drawImage(canvas, -width/2, -height/2, width, height);
             ctx.restore();
             
             ctx.globalAlpha = 1.0;
-            // Faster color cycle
             canvas.style.filter = `hue-rotate(${frameCount * 4}deg) contrast(1.7) saturate(2.5)`;
         }
 
-        // MODE 1: ENHANCED MELTER (More aggressive mobile melt)
+        // MODE 1: ENHANCED MELTER (NOW WITH STRETCHING/SHEAR)
         function effectMelter() {
             ctx.globalCompositeOperation = 'source-over';
-            // Increased offset for stronger smear
+            
+            // 1. Save state and apply stretching transformation to the existing canvas content
+            ctx.save();
+            
+            // Move origin to center for scaling/shearing
+            ctx.translate(width / 2, height / 2);
+            
+            // Shear (b) & Scale Y (d) - Creates the melting/stretching effect
+            const shear = Math.sin(frameCount * 0.03) * 0.05;
+            const stretch = 1 + Math.cos(frameCount * 0.01) * 0.01;
+            ctx.transform(
+                1,       // a (scale X)
+                shear,   // b (shear Y)
+                0,       // c (shear X - keeping it vertical)
+                stretch, // d (scale Y)
+                0,       // e (translate X)
+                0        // f (translate Y)
+            );
+            
+            // Move back and draw the previous frame (applying the stretch)
+            ctx.translate(-width / 2, -height / 2);
             ctx.drawImage(canvas, 
                 Math.sin(frameCount * 0.2) * 5, 
                 Math.cos(frameCount * 0.1) * 5, 
-                width + 10, // Increased size for stronger feedback
+                width + 10,
                 height + 10
             );
+            ctx.restore(); // Restore context to normal (identity matrix)
             
+            // 2. Draw the new video frame
             ctx.globalCompositeOperation = 'hard-light';
             if (video.readyState >= 2) drawVideoFit(ctx, video, width, height);
             
-            if (frameCount % 2 === 0) { // Even more frequent color burn
+            // 3. Color Burn wash
+            if (frameCount % 2 === 0) { 
                 ctx.globalCompositeOperation = 'color-burn';
-                ctx.fillStyle = `hsla(${frameCount % 360}, 100%, 75%, 0.2)`; // Brighter, more visible color wash
+                ctx.fillStyle = `hsla(${frameCount % 360}, 100%, 75%, 0.2)`; 
                 ctx.fillRect(0, 0, width, height);
             }
-            // Higher brightness and saturation
+            
+            ctx.globalAlpha = 1.0;
             canvas.style.filter = `hue-rotate(${frameCount * 1.5}deg) brightness(1.5) saturate(3.0)`;
         }
 
-        // MODE 2: ENHANCED GHOST (More visible mobile wobble and contrast)
+        // MODE 2: ENHANCED GHOST 
         function effectGhost() {
             ctx.globalCompositeOperation = 'source-over';
             ctx.fillStyle = 'rgba(0, 0, 0, 0.1)'; 
             ctx.fillRect(0, 0, width, height);
             ctx.globalCompositeOperation = 'screen'; 
             
-            // Increased jitter for mobile
             const jitterX = (Math.random() - 0.5) * 20; 
             const jitterY = (Math.random() - 0.5) * 20; 
 
             ctx.save();
-            ctx.globalAlpha = 0.9; // More visible base image
+            ctx.globalAlpha = 0.9;
             ctx.translate(width/2 + jitterX, height/2 + jitterY);
             ctx.scale(-1, 1);
             if (video.readyState >= 2) drawVideoFit(ctx, video, width, height);
             ctx.restore();
             
-            // Stronger difference layer
             ctx.globalCompositeOperation = 'difference';
             ctx.drawImage(canvas, -10, 0, width, height); 
             
+            ctx.globalAlpha = 1.0;
             canvas.style.filter = `contrast(300%) saturate(300%) hue-rotate(${frameCount * 4}deg)`;
         }
 
@@ -424,6 +444,7 @@
             ctx.globalCompositeOperation = 'difference';
             ctx.fillStyle = `hsla(${(frameCount * 2) % 360}, 100%, 50%, 0.1)`;
             ctx.fillRect(0,0,width,height);
+            ctx.globalAlpha = 1.0;
             canvas.style.filter = `hue-rotate(-${frameCount}deg)`;
         }
 
@@ -443,6 +464,7 @@
             ctx.globalCompositeOperation = 'overlay';
             ctx.fillStyle = `hsla(${frameCount * 3 % 360}, 80%, 60%, 0.5)`;
             ctx.fillRect(0, 0, width, height);
+            ctx.globalAlpha = 1.0;
             canvas.style.filter = `saturate(500%) contrast(500%) hue-rotate(${frameCount * 0.2}deg)`;
         }
 
@@ -475,6 +497,7 @@
                 }
                 ctx.restore();
             }
+            ctx.globalAlpha = 1.0;
             canvas.style.filter = `invert(100%) hue-rotate(${frameCount * 0.4}deg) saturate(300%)`;
         }
         
@@ -510,24 +533,26 @@
             ctx.globalCompositeOperation = 'color';
             ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
             ctx.fillRect(0,0, width, height);
+            ctx.globalAlpha = 1.0;
             canvas.style.filter = `contrast(150%) saturate(120%) brightness(120%)`;
         }
 
-        // MODE 7: HEAVENS GATE FIX (Centering the base image)
+        // MODE 7: HEAVENS GATE - FIXED CENTERING LOGIC
         function effectHeavensGate() {
+            // 1. Base Cleanup and Fade
             ctx.globalCompositeOperation = 'source-over';
             ctx.fillStyle = 'rgba(0, 0, 0, 0.08)'; 
             ctx.fillRect(0, 0, width, height);
             
             if (video.readyState >= 2) {
                 
-                // Draw Base Layer (Centered, low opacity)
+                // 2. Draw the main centered layer first (The non-wobbly base)
                 ctx.globalCompositeOperation = 'source-over';
-                ctx.globalAlpha = 0.3;
+                ctx.globalAlpha = 0.5; // High opacity center layer
                 drawVideoFit(ctx, video, width, height);
 
 
-                // Liquid Distortion Layers (Exclusion/Wobble)
+                // 3. Distortion Layers (Wobble, Exclusion, Color Shift)
                 ctx.globalCompositeOperation = 'exclusion';
                 const shiftX = Math.sin(frameCount * 0.02) * 20;
                 const shiftY = Math.cos(frameCount * 0.03) * 20;
@@ -537,18 +562,24 @@
                 const breathe = 1 + Math.sin(frameCount * 0.05) * 0.05;
                 ctx.scale(breathe, breathe);
                 
-                // Red Channel shift
-                ctx.save(); ctx.translate(shiftX, shiftY); ctx.globalAlpha = 0.5;
-                drawVideoFit(ctx, video, width, height); ctx.restore();
+                // Red Shift
+                ctx.save(); 
+                ctx.translate(shiftX, shiftY); 
+                ctx.globalAlpha = 0.5;
+                drawVideoFit(ctx, video, width, height); 
+                ctx.restore();
 
-                // Blue Channel shift
-                ctx.save(); ctx.translate(-shiftX, -shiftY); ctx.globalAlpha = 0.5;
-                drawVideoFit(ctx, video, width, height); ctx.restore();
+                // Blue Shift
+                ctx.save(); 
+                ctx.translate(-shiftX, -shiftY); 
+                ctx.globalAlpha = 0.5;
+                drawVideoFit(ctx, video, width, height); 
+                ctx.restore();
                 
                 ctx.restore();
             }
 
-            // Ethereal Glow (Bloom)
+            // 4. Ethereal Glow (Bloom)
             ctx.globalCompositeOperation = 'lighter';
             ctx.save();
             ctx.filter = 'blur(20px)';
@@ -557,6 +588,7 @@
             ctx.restore();
             ctx.filter = 'none';
 
+            ctx.globalAlpha = 1.0;
             const hue = (frameCount * 0.5) % 360;
             canvas.style.filter = `hue-rotate(${hue}deg) brightness(130%) contrast(110%)`;
         }
@@ -579,6 +611,7 @@
             ctx.globalCompositeOperation = 'color-burn';
             ctx.fillStyle = `hsla(${frameCount * 5 % 30 + 10}, 100%, 50%, 0.1)`;
             ctx.fillRect(0, 0, width, height);
+            ctx.globalAlpha = 1.0;
             canvas.style.filter = `brightness(120%) contrast(300%) saturate(300%) hue-rotate(10deg)`;
         }
 
