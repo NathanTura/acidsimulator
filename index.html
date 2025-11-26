@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Psychedelic Camera v3.0 (Melter, Ghost, Heaven Fix)</title>
+    <title>Psychedelic Camera Tapestry v2.8 (Heaven White Melt, Melter MELTS)</title>
     <style>
         body, html {
             margin: 0;
@@ -179,12 +179,12 @@
 
     <div id="container">
         <div id="start-overlay">
-            <h1 style="color:white; margin-bottom: 30px; font-family: 'Courier New'; text-align: center;">ACID_CAM_v3.0</h1>
+            <h1 style="color:white; margin-bottom: 30px; font-family: 'Courier New'; text-align: center;">ACID_CAM_v2.8</h1>
             <button id="start-btn" onclick="initExperience()">ENTER THE VOID</button>
             <div id="error-msg"></div>
         </div>
 
-        <div id="title-overlay">ACID_CAM_v3.0</div>
+        <div id="title-overlay">ACID_CAM_v2.8</div>
         
         <video id="videoElement" autoplay playsinline muted></video>
         <canvas id="canvasElement"></canvas>
@@ -321,7 +321,7 @@
 
         // --- VISUAL EFFECTS ---
 
-        // MODE 0: WEAVER
+        // MODE 0: WEAVER (Rotation added back to echo layer)
         function effectWeaver() {
             ctx.globalCompositeOperation = 'source-over';
             ctx.fillStyle = `rgba(0, 0, 0, 0.03)`; 
@@ -330,6 +330,7 @@
             ctx.save();
             ctx.translate(width / 2, height / 2);
             
+            // Primary image rotation/scaling
             ctx.rotate(Math.sin(frameCount * 0.02) * 0.3); 
             const scale = 1 + Math.sin(frameCount * 0.04) * 0.1; 
             ctx.scale(scale, scale);
@@ -344,10 +345,11 @@
             }
             ctx.restore();
             
+            // ECHO LAYER: Rotation REINTRODUCED here
             ctx.globalCompositeOperation = 'lighter';
             ctx.save();
             ctx.translate(width/2, height/2);
-            ctx.rotate(0.04);
+            ctx.rotate(0.04); // <- Rotation is back
             ctx.scale(1.03, 1.03); 
             ctx.globalAlpha = 0.8;
             ctx.drawImage(canvas, -width/2, -height/2, width, height);
@@ -357,78 +359,75 @@
             canvas.style.filter = `hue-rotate(${frameCount * 4}deg) contrast(1.7) saturate(2.5)`;
         }
 
-        // MODE 1: MELTER (Updated to Stretch and Melt aggressively)
+        // MODE 1: MELTER (DRAMATIC Horizontal Stretch/Shear)
         function effectMelter() {
-            // 1. Draw the "Feedback" (Previous Frame) with Stretching
             ctx.globalCompositeOperation = 'source-over';
             
+            // 1. Save state and apply much stronger horizontal stretching transformation
             ctx.save();
-            // Move origin to center
+            
+            // Move origin to center for scaling/shearing
             ctx.translate(width / 2, height / 2);
             
-            // MATH MAGIC: Stretch X significantly, Shear Y based on time to create "Melt" flow
-            const stretchX = 1.05 + Math.sin(frameCount * 0.05) * 0.05; // Expands sideways
-            const meltY = 1.02; // Slowly falls down
+            // Significantly increased shearX and stretchX parameters for a more dramatic melt!
+            const shearX = Math.cos(frameCount * 0.05) * 0.15; // Increased from 0.05
+            const stretchX = 1 + Math.sin(frameCount * 0.02) * 0.1; // Increased from 0.01
+            ctx.transform(
+                stretchX, // a (scale X)
+                0,        // b (shear Y - keeping it vertical)
+                shearX,   // c (shear X)
+                1,        // d (scale Y - unchanged)
+                0,        // e (translate X)
+                0         // f (translate Y)
+            );
             
-            ctx.scale(stretchX, meltY);
+            // Move back and draw the previous frame (applying the stretch)
+            ctx.translate(-width / 2, -height / 2);
+            ctx.drawImage(canvas, 
+                Math.sin(frameCount * 0.2) * 8, // Slightly increased drift
+                Math.cos(frameCount * 0.1) * 8, // Slightly increased drift
+                width + 20, // More aggressive size increase to fill gaps
+                height + 20
+            );
+            ctx.restore(); // Restore context to normal (identity matrix)
             
-            // Draw existing canvas back onto itself (The feedback loop)
-            ctx.drawImage(canvas, -width/2, -height/2, width, height);
-            ctx.restore();
-
-            // 2. Draw Fresh Video on top (with blend)
-            ctx.globalCompositeOperation = 'hard-light'; // Blends harshly for glitch look
-            if (video.readyState >= 2) {
-                drawVideoFit(ctx, video, width, height);
-            }
-
-            // 3. Random horizontal "pixel stretch" lines
-            if (Math.random() > 0.7) {
-                 ctx.globalCompositeOperation = 'source-over';
-                 const lineY = Math.random() * height;
-                 const h = Math.random() * 50;
-                 ctx.drawImage(canvas, 0, lineY, width, h, -50, lineY, width + 100, h);
+            // 2. Draw the new video frame
+            ctx.globalCompositeOperation = 'hard-light';
+            if (video.readyState >= 2) drawVideoFit(ctx, video, width, height);
+            
+            // 3. Color Burn wash
+            if (frameCount % 2 === 0) { 
+                ctx.globalCompositeOperation = 'color-burn';
+                ctx.fillStyle = `hsla(${frameCount % 360}, 100%, 75%, 0.25)`; // Slightly increased opacity
+                ctx.fillRect(0, 0, width, height);
             }
             
             ctx.globalAlpha = 1.0;
-            // Psychedelic coloring
-            canvas.style.filter = `contrast(200%) saturate(300%) hue-rotate(${frameCount}deg)`;
+            canvas.style.filter = `hue-rotate(${frameCount * 1.5}deg) brightness(1.7) saturate(3.5)`; // More vibrant
         }
 
-        // MODE 2: GHOST (Fixed: No longer black, white spectral trails)
+        // MODE 2: ENHANCED GHOST 
         function effectGhost() {
-            // 1. Fade out the old trails slightly
             ctx.globalCompositeOperation = 'source-over';
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)'; // Low opacity black
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)'; 
             ctx.fillRect(0, 0, width, height);
+            ctx.globalCompositeOperation = 'screen'; 
+            
+            const jitterX = (Math.random() - 0.5) * 20; 
+            const jitterY = (Math.random() - 0.5) * 20; 
 
-            if (video.readyState >= 2) {
-                // 2. Create the "Difference" image (Edge detection)
-                // Draw video into an offscreen buffer logic (simulated here)
-                
-                ctx.globalCompositeOperation = 'difference';
-                ctx.save();
-                // Slight offset to create the "edge"
-                ctx.translate(width/2, height/2);
-                ctx.scale(1.02, 1.02); // Expand slightly
-                ctx.translate(-width/2, -height/2);
-                drawVideoFit(ctx, video, width, height);
-                ctx.restore();
-                
-                // 3. Draw the actual video on top using 'screen' to make it light/white
-                ctx.globalCompositeOperation = 'screen';
-                ctx.filter = 'grayscale(100%) brightness(150%) contrast(200%)'; // Make it white/spectral
-                drawVideoFit(ctx, video, width, height);
-                ctx.filter = 'none'; // Reset
-            }
-
-            // 4. Colorize the result
-            ctx.globalCompositeOperation = 'overlay';
-            ctx.fillStyle = `hsla(${frameCount * 2}, 100%, 50%, 0.1)`;
-            ctx.fillRect(0, 0, width, height);
-
+            ctx.save();
+            ctx.globalAlpha = 0.9;
+            ctx.translate(width/2 + jitterX, height/2 + jitterY);
+            ctx.scale(-1, 1);
+            if (video.readyState >= 2) drawVideoFit(ctx, video, width, height);
+            ctx.restore();
+            
+            ctx.globalCompositeOperation = 'difference';
+            ctx.drawImage(canvas, -10, 0, width, height); 
+            
             ctx.globalAlpha = 1.0;
-            canvas.style.filter = 'contrast(150%) brightness(120%)';
+            canvas.style.filter = `contrast(300%) saturate(300%) hue-rotate(${frameCount * 4}deg)`;
         }
 
 
@@ -540,39 +539,44 @@
             canvas.style.filter = `contrast(150%) saturate(120%) brightness(120%)`;
         }
 
-        // MODE 7: HEAVEN (Updated: All White, Blur, Delayed Multiples)
-        function effectHeaven() {
-            // 1. Maintain background (Very slow fade of previous frames to keep them around)
+        // MODE 7: HEAVENS GATE - All White, Strong Blur Duplication, Focused Center
+        function effectHeavensGate() {
+            // 1. Clear with a slight white fade, establishing the "white" base
             ctx.globalCompositeOperation = 'source-over';
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.05)'; // Very transparent white
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.1)'; // White fade
             ctx.fillRect(0, 0, width, height);
             
             if (video.readyState >= 2) {
-                // 2. The Feedback Loop (The "Multiple Things" Echo)
-                ctx.globalCompositeOperation = 'multiply'; // Keeps darks, but we will invert later or use difference
-                // Actually, for a white heaven, we want 'source-over' with opacity
-                
-                ctx.save();
+                // 2. Main centered image
                 ctx.globalCompositeOperation = 'source-over';
-                ctx.globalAlpha = 0.9; 
-                // Zoom out slightly to create the tunnel/echo effect
-                const zoom = 1.01;
-                ctx.translate(width/2, height/2);
-                ctx.scale(zoom, zoom);
-                ctx.drawImage(canvas, -width/2, -height/2, width, height);
-                ctx.restore();
-
-                // 3. Draw New Frame (Heavily Blurred and Bright)
-                ctx.globalCompositeOperation = 'screen'; // Additive light
-                ctx.filter = 'grayscale(100%) brightness(150%) blur(4px)'; // All white, bright, blurred
-                ctx.globalAlpha = 0.6;
+                ctx.globalAlpha = 0.9;
                 drawVideoFit(ctx, video, width, height);
-                ctx.filter = 'none';
+                
+                // 3. Blur Duplication (More aggressive)
+                ctx.globalCompositeOperation = 'lighter'; // Additive blending for glow
+                ctx.save();
+                const blurAmount = 30 + Math.sin(frameCount * 0.04) * 15; // Dynamic blur
+                ctx.filter = `blur(${blurAmount}px)`;
+                ctx.globalAlpha = 0.5; // Stronger alpha for the blur
+                drawVideoFit(ctx, video, width, height); // Draw blurred version
+                ctx.restore();
+                ctx.filter = 'none'; // Reset filter
+
+                // 4. Subtle Color Shift/Exclusion on blurred elements
+                ctx.globalCompositeOperation = 'exclusion';
+                const shiftX = Math.sin(frameCount * 0.02) * 8; // Small shift
+                const shiftY = Math.cos(frameCount * 0.03) * 8;
+                ctx.globalAlpha = 0.3; // Light exclusion blend
+                
+                ctx.save(); 
+                ctx.translate(shiftX, shiftY); 
+                drawVideoFit(ctx, video, width, height); 
+                ctx.restore();
             }
 
             ctx.globalAlpha = 1.0;
-            // Force final output to be black and white and blown out
-            canvas.style.filter = 'grayscale(100%) brightness(130%) contrast(110%)';
+            // Overall filter for the final white ethereal look
+            canvas.style.filter = `brightness(200%) contrast(150%) saturate(200%) hue-rotate(${frameCount * 0.5}deg)`;
         }
         
         function effectInfernalPit() {
@@ -608,7 +612,7 @@
                     case 4: effectStainedGlass(); break;
                     case 5: effectShivasDream(); break;
                     case 6: effectOlympus(); break;
-                    case 7: effectHeaven(); break;
+                    case 7: effectHeavensGate(); break;
                     case 8: effectInfernalPit(); break;
                 }
             }
