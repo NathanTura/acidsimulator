@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Psychedelic Camera Tapestry</title>
+    <title>Psychedelic Camera Tapestry v2.2 (Mobile Optimized)</title>
     <style>
         body, html {
             margin: 0;
@@ -179,12 +179,12 @@
 
     <div id="container">
         <div id="start-overlay">
-            <h1 style="color:white; margin-bottom: 30px; font-family: 'Courier New'; text-align: center;">ACID_CAM_v2.0</h1>
+            <h1 style="color:white; margin-bottom: 30px; font-family: 'Courier New'; text-align: center;">ACID_CAM_v2.2</h1>
             <button id="start-btn" onclick="initExperience()">ENTER THE VOID</button>
             <div id="error-msg"></div>
         </div>
 
-        <div id="title-overlay">ACID_CAM_v2.0</div>
+        <div id="title-overlay">ACID_CAM_v2.2</div>
         
         <video id="videoElement" autoplay playsinline muted></video>
         <canvas id="canvasElement"></canvas>
@@ -201,6 +201,7 @@
                 <button onclick="setMode(6)" id="btn6" class="control-btn">Olympus</button>
                 <button onclick="setMode(7)" id="btn7" class="control-btn">Heaven</button>
                 <button onclick="setMode(8)" id="btn8" class="control-btn">Inferno</button>
+                <button onclick="switchCamera()" class="control-btn" style="border-color: cyan; color: cyan;">Flip 🔄</button>
                 <button onclick="togglePause()" id="pauseBtn" class="control-btn">Freeze</button>
                 <button onclick="saveImage()" class="control-btn">Snap 📸</button>
             </div>
@@ -225,6 +226,9 @@
         let currentMode = 0;
         const MODE_COUNT = 9;
 
+        let currentFacingMode = 'user'; 
+        let currentStream = null;
+
         function initExperience() {
             startBtn.innerText = "CONNECTING...";
             startBtn.disabled = true;
@@ -232,24 +236,41 @@
         }
 
         async function startCamera() {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => {
+                    track.stop();
+                });
+            }
+
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
+                const constraints = { 
                     video: { 
                         width: { ideal: 1920 },
                         height: { ideal: 1080 },
-                        facingMode: "user"
+                        facingMode: { exact: currentFacingMode }
                     }, 
                     audio: false 
-                });
+                };
+
+                try {
+                    currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                } catch(e) {
+                    currentStream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { 
+                            facingMode: currentFacingMode 
+                        }, 
+                        audio: false 
+                    });
+                }
                 
-                video.srcObject = stream;
+                video.srcObject = currentStream;
                 video.onloadedmetadata = () => {
                     video.play().then(() => {
                         startOverlay.style.display = 'none';
                         uiLayer.style.display = 'flex';
                         titleOverlay.style.display = 'block';
                         resizeCanvas();
-                        animate();
+                        if (!animationId) animate();
                     }).catch(e => {
                         handleError("Video Play Error: " + e.message);
                     }); 
@@ -257,6 +278,11 @@
             } catch (err) {
                 handleError(err);
             }
+        }
+
+        function switchCamera() {
+            currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
+            startCamera();
         }
 
         function handleError(err) {
@@ -280,7 +306,9 @@
         window.addEventListener('resize', resizeCanvas);
 
         function drawVideoFit(context, videoElement, cW, cH) {
-            const vRatio = videoElement.videoWidth / videoElement.videoHeight || 1.33; 
+            if (videoElement.videoWidth === 0) return;
+
+            const vRatio = videoElement.videoWidth / videoElement.videoHeight;
             const cRatio = cW / cH;
             let dw, dh;
             if (cRatio > vRatio) {
@@ -293,16 +321,20 @@
 
         // --- VISUAL EFFECTS ---
 
+        // MODE 0: ENHANCED WEAVER (Faster Rotation, Faster Color Cycle, Stronger Echo)
         function effectWeaver() {
             ctx.globalCompositeOperation = 'source-over';
-            ctx.fillStyle = `rgba(0, 0, 0, 0.05)`;
+            ctx.fillStyle = `rgba(0, 0, 0, 0.03)`; // Less fade for longer trails
             ctx.fillRect(0, 0, width, height);
             ctx.globalCompositeOperation = 'exclusion'; 
             ctx.save();
             ctx.translate(width / 2, height / 2);
-            ctx.rotate(Math.sin(frameCount * 0.005) * 0.1);
-            const scale = 1 + Math.sin(frameCount * 0.01) * 0.05;
+            
+            // Increased rotation and scale dynamic (more wobbling)
+            ctx.rotate(Math.sin(frameCount * 0.01) * 0.2); 
+            const scale = 1 + Math.sin(frameCount * 0.02) * 0.08; 
             ctx.scale(scale, scale);
+            
             if (video.readyState >= 2) {
                 const vRatio = video.videoWidth / video.videoHeight || 1.33;
                 let dw, dh;
@@ -312,29 +344,44 @@
                 ctx.drawImage(video, -dw / 2, -dh / 2, dw, dh);
             }
             ctx.restore();
+            
+            // Stronger echo/trailing layer
             ctx.globalCompositeOperation = 'lighter';
             ctx.save();
             ctx.translate(width/2, height/2);
-            ctx.rotate(0.01);
-            ctx.scale(1.01, 1.01); 
-            ctx.globalAlpha = 0.6;
+            ctx.rotate(0.02); // Fixed rotation for clear spiral
+            ctx.scale(1.02, 1.02); // Slightly larger zoom trail
+            ctx.globalAlpha = 0.7;
             ctx.drawImage(canvas, -width/2, -height/2, width, height);
             ctx.restore();
+            
             ctx.globalAlpha = 1.0;
-            canvas.style.filter = `hue-rotate(${frameCount * 0.5}deg) contrast(1.2) saturate(1.5)`;
+            // Much faster color cycle
+            canvas.style.filter = `hue-rotate(${frameCount * 3}deg) contrast(1.5) saturate(2.0)`;
         }
 
+        // MODE 1: ENHANCED MELTER (Stronger Color Burn, Higher Saturation, More Offset)
         function effectMelter() {
             ctx.globalCompositeOperation = 'source-over';
-            ctx.drawImage(canvas, -2, -2, width + 4, height + 4);
+            // Increased offset for a more noticeable melt/smear
+            ctx.drawImage(canvas, 
+                Math.sin(frameCount * 0.1) * 3, 
+                Math.cos(frameCount * 0.05) * 3, 
+                width + 6, 
+                height + 6
+            );
+            
             ctx.globalCompositeOperation = 'hard-light';
             if (video.readyState >= 2) drawVideoFit(ctx, video, width, height);
-            if (frameCount % 5 === 0) {
+            
+            if (frameCount % 3 === 0) { // More frequent color burn
                 ctx.globalCompositeOperation = 'color-burn';
-                ctx.fillStyle = `hsla(${frameCount % 360}, 100%, 50%, 0.1)`;
+                // Higher saturation color wash
+                ctx.fillStyle = `hsla(${frameCount % 360}, 100%, 70%, 0.15)`; 
                 ctx.fillRect(0, 0, width, height);
             }
-            canvas.style.filter = `hue-rotate(${frameCount}deg) brightness(1.1)`;
+            // Higher brightness and saturation
+            canvas.style.filter = `hue-rotate(${frameCount}deg) brightness(1.3) saturate(2.5)`;
         }
 
         function effectGhost() {
@@ -424,122 +471,73 @@
             canvas.style.filter = `invert(100%) hue-rotate(${frameCount * 0.4}deg) saturate(300%)`;
         }
         
-        // --- UPDATED OLYMPUS: KALEIDOSCOPE TEMPLE ---
         function effectOlympus() {
-            // 1. Create a Golden/Marble tint background
             ctx.globalCompositeOperation = 'source-over';
-            // Alternating gold and faint blue for "Marble" feel
             const hue = 45 + Math.sin(frameCount * 0.01) * 10;
             ctx.fillStyle = `hsla(${hue}, 40%, 10%, 0.2)`; 
             ctx.fillRect(0, 0, width, height);
             
             if (video.readyState >= 2) {
-                // 2. KALEIDOSCOPE MIRRORING
-                // This reshapes tables/walls into symmetrical temple pillars/altars
-                
-                ctx.globalCompositeOperation = 'lighter'; // Glowy add mode
-                
+                ctx.globalCompositeOperation = 'lighter';
                 const centerX = width / 2;
                 const centerY = height / 2;
                 
-                // We draw the video 4 times, mirrored
-                
-                // Top Left (Standard)
                 ctx.save();
                 ctx.translate(centerX, centerY);
-                ctx.scale(0.6, 0.6); // Shrink a bit to see the pattern
-                ctx.rotate(frameCount * 0.005); // Slow rotation of the entire temple
+                ctx.scale(0.6, 0.6); 
+                ctx.rotate(frameCount * 0.005); 
                 
-                // Draw Quadrant 1
                 ctx.drawImage(video, -width, -height, width, height);
-                
-                // Draw Quadrant 2 (Mirrored X)
-                ctx.save();
-                ctx.scale(-1, 1);
-                ctx.drawImage(video, -width, -height, width, height);
-                ctx.restore();
-
-                // Draw Quadrant 3 (Mirrored Y)
-                ctx.save();
-                ctx.scale(1, -1);
-                ctx.drawImage(video, -width, -height, width, height);
-                ctx.restore();
-
-                // Draw Quadrant 4 (Mirrored XY)
-                ctx.save();
-                ctx.scale(-1, -1);
-                ctx.drawImage(video, -width, -height, width, height);
-                ctx.restore();
+                ctx.save(); ctx.scale(-1, 1); ctx.drawImage(video, -width, -height, width, height); ctx.restore();
+                ctx.save(); ctx.scale(1, -1); ctx.drawImage(video, -width, -height, width, height); ctx.restore();
+                ctx.save(); ctx.scale(-1, -1); ctx.drawImage(video, -width, -height, width, height); ctx.restore();
 
                 ctx.restore();
             }
             
-            // 3. Lightning / Sparkle effect
             if (Math.random() > 0.95) {
                 ctx.globalCompositeOperation = 'overlay';
                 ctx.fillStyle = 'white';
                 ctx.fillRect(0, 0, width, height);
             }
-
-            // 4. Gold Overlay
             ctx.globalCompositeOperation = 'color';
-            ctx.fillStyle = 'rgba(255, 215, 0, 0.3)'; // Gold overlay
+            ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
             ctx.fillRect(0,0, width, height);
-
             canvas.style.filter = `contrast(150%) saturate(120%) brightness(120%)`;
         }
 
-        // --- UPDATED HEAVEN: PEARLESCENT SPIRIT ---
         function effectHeavensGate() {
-            // 1. Slow fade to create trails
             ctx.globalCompositeOperation = 'source-over';
             ctx.fillStyle = 'rgba(0, 0, 0, 0.08)'; 
             ctx.fillRect(0, 0, width, height);
             
             if (video.readyState >= 2) {
-                // 2. Liquid Distortion (Making objects look like spirits/clouds)
-                // We draw the video with "Exclusion" mode which inverts colors into neon pastels
                 ctx.globalCompositeOperation = 'exclusion';
-                
                 const shiftX = Math.sin(frameCount * 0.02) * 20;
                 const shiftY = Math.cos(frameCount * 0.03) * 20;
                 
                 ctx.save();
                 ctx.translate(width/2, height/2);
-                
-                // Wobbly scaling creates the "breathing" room effect
                 const breathe = 1 + Math.sin(frameCount * 0.05) * 0.05;
                 ctx.scale(breathe, breathe);
                 
-                // Draw Video - Blue Channel shift
-                ctx.save();
-                ctx.translate(shiftX, shiftY);
-                ctx.globalAlpha = 0.6;
-                drawVideoFit(ctx, video, width, height);
-                ctx.restore();
+                ctx.save(); ctx.translate(shiftX, shiftY); ctx.globalAlpha = 0.6;
+                drawVideoFit(ctx, video, width, height); ctx.restore();
 
-                // Draw Video - Red Channel shift (Opposite direction)
-                ctx.save();
-                ctx.translate(-shiftX, -shiftY);
-                ctx.globalAlpha = 0.6;
-                drawVideoFit(ctx, video, width, height);
-                ctx.restore();
+                ctx.save(); ctx.translate(-shiftX, -shiftY); ctx.globalAlpha = 0.6;
+                drawVideoFit(ctx, video, width, height); ctx.restore();
                 
                 ctx.restore();
             }
 
-            // 3. Ethereal Glow (Bloom)
             ctx.globalCompositeOperation = 'lighter';
             ctx.save();
             ctx.filter = 'blur(20px)';
             ctx.globalAlpha = 0.4;
-            // Draw the canvas back onto itself blurred to create "bloom" around windows/lights
             ctx.drawImage(canvas, 0, 0);
             ctx.restore();
             ctx.filter = 'none';
 
-            // 4. Color Cycle (Aurora Borealis)
-            // Cycles through Pink -> Cyan -> Purple
             const hue = (frameCount * 0.5) % 360;
             canvas.style.filter = `hue-rotate(${hue}deg) brightness(130%) contrast(110%)`;
         }
