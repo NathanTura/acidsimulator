@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Psychedelic Camera Tapestry</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            overflow: hidden;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        #container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        video { display: none; }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Start Screen Overlay */
+        #start-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        #start-btn {
+            font-size: 24px;
+            padding: 15px 30px;
+            background: #ff00ff;
+            border: 2px solid #ff00ff;
+            color: white;
+            cursor: pointer;
+            border-radius: 50px;
+            box-shadow: 0 0 20px #ff00ff;
+            animation: pulse 2s infinite;
+            text-transform: uppercase;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        #start-btn:hover {
+            background: #fff;
+            color: #ff00ff;
+            box-shadow: 0 0 40px #ff00ff;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 20px #ff00ff; }
+            50% { transform: scale(1.05); box-shadow: 0 0 40px #ff00ff; }
+            100% { transform: scale(1); box-shadow: 0 0 20px #ff00ff; }
+        }
+
+        #error-msg {
+            color: #ff3333;
+            margin-top: 20px;
+            text-align: center;
+            background: rgba(50, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            display: none;
+        }
+
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            pointer-events: none;
+            z-index: 10;
+            display: none;
+        }
+
+        .controls {
+            pointer-events: auto;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 15px;
+            border-radius: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(5px);
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 90%;
+        }
+
+        button.control-btn {
+            background: transparent;
+            color: #fff;
+            border: 1px solid #fff;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            text-transform: uppercase;
+            border-radius: 20px;
+            transition: all 0.2s ease;
+            font-weight: bold;
+            letter-spacing: 1px;
+            white-space: nowrap;
+        }
+
+        button.control-btn:hover {
+            background: #fff;
+            color: #000;
+            box-shadow: 0 0 15px #fff;
+        }
+
+        button.active {
+            background: #ff00ff;
+            border-color: #ff00ff;
+            color: #fff;
+            box-shadow: 0 0 15px #ff00ff;
+        }
+
+        #status {
+            color: #fff;
+            text-shadow: 0 0 5px #000;
+            font-size: 12px;
+            margin-bottom: 5px;
+            opacity: 0.8;
+        }
+
+        #title-overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            mix-blend-mode: exclusion;
+            pointer-events: none;
+            display: none;
+        }
+
+        @media (max-width: 600px) {
+            .controls {
+                padding: 10px;
+                gap: 5px;
+            }
+            button.control-btn {
+                font-size: 10px;
+                padding: 6px 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="container">
+        <div id="start-overlay">
+            <h1 style="color:white; margin-bottom: 30px; font-family: 'Courier New'; text-align: center;">ACID_CAM_v2.0</h1>
+            <button id="start-btn" onclick="initExperience()">ENTER THE VOID</button>
+            <div id="error-msg"></div>
+        </div>
+
+        <div id="title-overlay">ACID_CAM_v2.0</div>
+        
+        <video id="videoElement" autoplay playsinline muted></video>
+        <canvas id="canvasElement"></canvas>
+
+        <div id="ui-layer">
+            <div id="status">Select a Trip Mode</div>
+            <div class="controls">
+                <button onclick="setMode(0)" id="btn0" class="control-btn active">Weaver</button>
+                <button onclick="setMode(1)" id="btn1" class="control-btn">Melter</button>
+                <button onclick="setMode(2)" id="btn2" class="control-btn">Ghost</button>
+                <button onclick="setMode(3)" id="btn3" class="control-btn">Tunnel</button>
+                <button onclick="setMode(4)" id="btn4" class="control-btn">Glass</button>
+                <button onclick="setMode(5)" id="btn5" class="control-btn">Shiva</button>
+                <button onclick="setMode(6)" id="btn6" class="control-btn">Olympus</button>
+                <button onclick="setMode(7)" id="btn7" class="control-btn">Heaven</button>
+                <button onclick="setMode(8)" id="btn8" class="control-btn">Inferno</button>
+                <button onclick="togglePause()" id="pauseBtn" class="control-btn">Freeze</button>
+                <button onclick="saveImage()" class="control-btn">Snap 📸</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('videoElement');
+        const canvas = document.getElementById('canvasElement');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const startOverlay = document.getElementById('start-overlay');
+        const startBtn = document.getElementById('start-btn');
+        const errorMsg = document.getElementById('error-msg');
+        const uiLayer = document.getElementById('ui-layer');
+        const titleOverlay = document.getElementById('title-overlay');
+        
+        let width = window.innerWidth;
+        let height = window.innerHeight;
+        let animationId;
+        let isPaused = false;
+        let frameCount = 0;
+        let currentMode = 0;
+        const MODE_COUNT = 9;
+
+        function initExperience() {
+            startBtn.innerText = "CONNECTING...";
+            startBtn.disabled = true;
+            startCamera();
+        }
+
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 },
+                        facingMode: "user"
+                    }, 
+                    audio: false 
+                });
+                
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    video.play().then(() => {
+                        startOverlay.style.display = 'none';
+                        uiLayer.style.display = 'flex';
+                        titleOverlay.style.display = 'block';
+                        resizeCanvas();
+                        animate();
+                    }).catch(e => {
+                        handleError("Video Play Error: " + e.message);
+                    }); 
+                };
+            } catch (err) {
+                handleError(err);
+            }
+        }
+
+        function handleError(err) {
+            console.error("Camera error:", err);
+            startBtn.innerText = "RETRY";
+            startBtn.disabled = false;
+            errorMsg.style.display = "block";
+            let msg = err.message || err.toString();
+            errorMsg.innerHTML = `<strong>ERROR:</strong> ${msg}`;
+        }
+
+        function resizeCanvas() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            ctx.fillStyle = "black";
+            ctx.fillRect(0, 0, width, height);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        function drawVideoFit(context, videoElement, cW, cH) {
+            const vRatio = videoElement.videoWidth / videoElement.videoHeight || 1.33; 
+            const cRatio = cW / cH;
+            let dw, dh;
+            if (cRatio > vRatio) {
+                dw = cW; dh = cW / vRatio;
+            } else {
+                dh = cH; dw = cH * vRatio;
+            }
+            context.drawImage(videoElement, (cW - dw)/2, (cH - dh)/2, dw, dh);
+        }
+
+        // --- VISUAL EFFECTS ---
+
+        function effectWeaver() {
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = `rgba(0, 0, 0, 0.05)`;
+            ctx.fillRect(0, 0, width, height);
+            ctx.globalCompositeOperation = 'exclusion'; 
+            ctx.save();
+            ctx.translate(width / 2, height / 2);
+            ctx.rotate(Math.sin(frameCount * 0.005) * 0.1);
+            const scale = 1 + Math.sin(frameCount * 0.01) * 0.05;
+            ctx.scale(scale, scale);
+            if (video.readyState >= 2) {
+                const vRatio = video.videoWidth / video.videoHeight || 1.33;
+                let dw, dh;
+                const cRatio = width / height;
+                if (cRatio > vRatio) { dw = width/scale; dh = (width/vRatio)/scale; } 
+                else { dh = height/scale; dw = (height*vRatio)/scale; }
+                ctx.drawImage(video, -dw / 2, -dh / 2, dw, dh);
+            }
+            ctx.restore();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.save();
+            ctx.translate(width/2, height/2);
+            ctx.rotate(0.01);
+            ctx.scale(1.01, 1.01); 
+            ctx.globalAlpha = 0.6;
+            ctx.drawImage(canvas, -width/2, -height/2, width, height);
+            ctx.restore();
+            ctx.globalAlpha = 1.0;
+            canvas.style.filter = `hue-rotate(${frameCount * 0.5}deg) contrast(1.2) saturate(1.5)`;
+        }
+
+        function effectMelter() {
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.drawImage(canvas, -2, -2, width + 4, height + 4);
+            ctx.globalCompositeOperation = 'hard-light';
+            if (video.readyState >= 2) drawVideoFit(ctx, video, width, height);
+            if (frameCount % 5 === 0) {
+                ctx.globalCompositeOperation = 'color-burn';
+                ctx.fillStyle = `hsla(${frameCount % 360}, 100%, 50%, 0.1)`;
+                ctx.fillRect(0, 0, width, height);
+            }
+            canvas.style.filter = `hue-rotate(${frameCount}deg) brightness(1.1)`;
+        }
+
+        function effectGhost() {
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)'; 
+            ctx.fillRect(0, 0, width, height);
+            ctx.globalCompositeOperation = 'screen'; 
+            const jitterX = (Math.random() - 0.5) * 10;
+            const jitterY = (Math.random() - 0.5) * 10;
+            ctx.save();
+            ctx.globalAlpha = 0.8;
+            ctx.translate(width/2 + jitterX, height/2 + jitterY);
+            ctx.scale(-1, 1);
+            if (video.readyState >= 2) drawVideoFit(ctx, video, width, height);
+            ctx.restore();
+            ctx.globalCompositeOperation = 'difference';
+            ctx.drawImage(canvas, -5, 0, width, height); 
+            canvas.style.filter = `contrast(200%) saturate(200%) hue-rotate(${frameCount * 2}deg)`;
+        }
+
+        function effectTunnel() {
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.globalAlpha = 0.2;
+            if (video.readyState >= 2) drawVideoFit(ctx, video, width, height);
+            ctx.globalAlpha = 0.95;
+            ctx.globalCompositeOperation = 'lighter'; 
+            ctx.save();
+            ctx.translate(width/2, height/2);
+            ctx.rotate(Math.sin(frameCount * 0.01) * 0.05); 
+            ctx.scale(0.92, 0.92); 
+            ctx.drawImage(canvas, -width/2, -height/2, width, height);
+            ctx.restore();
+            ctx.globalCompositeOperation = 'difference';
+            ctx.fillStyle = `hsla(${(frameCount * 2) % 360}, 100%, 50%, 0.1)`;
+            ctx.fillRect(0,0,width,height);
+            canvas.style.filter = `hue-rotate(-${frameCount}deg)`;
+        }
+
+        function effectStainedGlass() {
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)'; 
+            ctx.fillRect(0, 0, width, height);
+            if (video.readyState >= 2) {
+                const pixelSize = 25 + Math.floor(Math.sin(frameCount * 0.03) * 10);
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.drawImage(video, 0, 0, width / pixelSize, height / pixelSize);
+                ctx.imageSmoothingEnabled = false;
+                ctx.globalCompositeOperation = 'difference';
+                ctx.drawImage(canvas, 0, 0, width / pixelSize, height / pixelSize, 0, 0, width, height);
+                ctx.imageSmoothingEnabled = true;
+            }
+            ctx.globalCompositeOperation = 'overlay';
+            ctx.fillStyle = `hsla(${frameCount * 3 % 360}, 80%, 60%, 0.5)`;
+            ctx.fillRect(0, 0, width, height);
+            canvas.style.filter = `saturate(500%) contrast(500%) hue-rotate(${frameCount * 0.2}deg)`;
+        }
+
+        function effectShivasDream() {
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+            ctx.fillRect(0, 0, width, height);
+            ctx.save();
+            ctx.translate(width/2, height/2);
+            ctx.rotate(0.01 + Math.sin(frameCount * 0.002) * 0.005); 
+            ctx.scale(0.98, 0.98); 
+            ctx.globalAlpha = 0.9;
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.drawImage(canvas, -width/2, -height/2, width, height);
+            ctx.restore();
+            if (video.readyState >= 2) {
+                ctx.globalCompositeOperation = 'difference';
+                ctx.save();
+                ctx.translate(width / 2, height / 2);
+                const fluidScale = 1 + Math.sin(frameCount * 0.01) * 0.1;
+                const fluidRot = Math.sin(frameCount * 0.02) * 0.05;
+                ctx.rotate(fluidRot);
+                ctx.scale(fluidScale, fluidScale);
+                for (let i = 0; i < 3; i++) {
+                    ctx.save();
+                    ctx.rotate(i * (Math.PI / 3) + frameCount * 0.001);
+                    ctx.globalAlpha = 0.3;
+                    drawVideoFit(ctx, video, width, height);
+                    ctx.restore();
+                }
+                ctx.restore();
+            }
+            canvas.style.filter = `invert(100%) hue-rotate(${frameCount * 0.4}deg) saturate(300%)`;
+        }
+        
+        // --- UPDATED OLYMPUS: KALEIDOSCOPE TEMPLE ---
+        function effectOlympus() {
+            // 1. Create a Golden/Marble tint background
+            ctx.globalCompositeOperation = 'source-over';
+            // Alternating gold and faint blue for "Marble" feel
+            const hue = 45 + Math.sin(frameCount * 0.01) * 10;
+            ctx.fillStyle = `hsla(${hue}, 40%, 10%, 0.2)`; 
+            ctx.fillRect(0, 0, width, height);
+            
+            if (video.readyState >= 2) {
+                // 2. KALEIDOSCOPE MIRRORING
+                // This reshapes tables/walls into symmetrical temple pillars/altars
+                
+                ctx.globalCompositeOperation = 'lighter'; // Glowy add mode
+                
+                const centerX = width / 2;
+                const centerY = height / 2;
+                
+                // We draw the video 4 times, mirrored
+                
+                // Top Left (Standard)
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                ctx.scale(0.6, 0.6); // Shrink a bit to see the pattern
+                ctx.rotate(frameCount * 0.005); // Slow rotation of the entire temple
+                
+                // Draw Quadrant 1
+                ctx.drawImage(video, -width, -height, width, height);
+                
+                // Draw Quadrant 2 (Mirrored X)
+                ctx.save();
+                ctx.scale(-1, 1);
+                ctx.drawImage(video, -width, -height, width, height);
+                ctx.restore();
+
+                // Draw Quadrant 3 (Mirrored Y)
+                ctx.save();
+                ctx.scale(1, -1);
+                ctx.drawImage(video, -width, -height, width, height);
+                ctx.restore();
+
+                // Draw Quadrant 4 (Mirrored XY)
+                ctx.save();
+                ctx.scale(-1, -1);
+                ctx.drawImage(video, -width, -height, width, height);
+                ctx.restore();
+
+                ctx.restore();
+            }
+            
+            // 3. Lightning / Sparkle effect
+            if (Math.random() > 0.95) {
+                ctx.globalCompositeOperation = 'overlay';
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, width, height);
+            }
+
+            // 4. Gold Overlay
+            ctx.globalCompositeOperation = 'color';
+            ctx.fillStyle = 'rgba(255, 215, 0, 0.3)'; // Gold overlay
+            ctx.fillRect(0,0, width, height);
+
+            canvas.style.filter = `contrast(150%) saturate(120%) brightness(120%)`;
+        }
+
+        // --- UPDATED HEAVEN: PEARLESCENT SPIRIT ---
+        function effectHeavensGate() {
+            // 1. Slow fade to create trails
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.08)'; 
+            ctx.fillRect(0, 0, width, height);
+            
+            if (video.readyState >= 2) {
+                // 2. Liquid Distortion (Making objects look like spirits/clouds)
+                // We draw the video with "Exclusion" mode which inverts colors into neon pastels
+                ctx.globalCompositeOperation = 'exclusion';
+                
+                const shiftX = Math.sin(frameCount * 0.02) * 20;
+                const shiftY = Math.cos(frameCount * 0.03) * 20;
+                
+                ctx.save();
+                ctx.translate(width/2, height/2);
+                
+                // Wobbly scaling creates the "breathing" room effect
+                const breathe = 1 + Math.sin(frameCount * 0.05) * 0.05;
+                ctx.scale(breathe, breathe);
+                
+                // Draw Video - Blue Channel shift
+                ctx.save();
+                ctx.translate(shiftX, shiftY);
+                ctx.globalAlpha = 0.6;
+                drawVideoFit(ctx, video, width, height);
+                ctx.restore();
+
+                // Draw Video - Red Channel shift (Opposite direction)
+                ctx.save();
+                ctx.translate(-shiftX, -shiftY);
+                ctx.globalAlpha = 0.6;
+                drawVideoFit(ctx, video, width, height);
+                ctx.restore();
+                
+                ctx.restore();
+            }
+
+            // 3. Ethereal Glow (Bloom)
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.save();
+            ctx.filter = 'blur(20px)';
+            ctx.globalAlpha = 0.4;
+            // Draw the canvas back onto itself blurred to create "bloom" around windows/lights
+            ctx.drawImage(canvas, 0, 0);
+            ctx.restore();
+            ctx.filter = 'none';
+
+            // 4. Color Cycle (Aurora Borealis)
+            // Cycles through Pink -> Cyan -> Purple
+            const hue = (frameCount * 0.5) % 360;
+            canvas.style.filter = `hue-rotate(${hue}deg) brightness(130%) contrast(110%)`;
+        }
+        
+        function effectInfernalPit() {
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = 'rgba(50, 0, 0, 0.2)'; 
+            ctx.fillRect(0, 0, width, height);
+            ctx.globalCompositeOperation = 'hard-light'; 
+            if (video.readyState >= 2) drawVideoFit(ctx, video, width, height);
+            ctx.globalCompositeOperation = 'difference';
+            ctx.save();
+            ctx.translate(width/2, height/2);
+            const scale = 0.9 + Math.abs(Math.sin(frameCount * 0.02)) * 0.05; 
+            ctx.rotate(frameCount * 0.02); 
+            ctx.scale(scale, scale); 
+            ctx.globalAlpha = 0.8;
+            ctx.drawImage(canvas, -width/2, -height/2, width, height);
+            ctx.restore();
+            ctx.globalCompositeOperation = 'color-burn';
+            ctx.fillStyle = `hsla(${frameCount * 5 % 30 + 10}, 100%, 50%, 0.1)`;
+            ctx.fillRect(0, 0, width, height);
+            canvas.style.filter = `brightness(120%) contrast(300%) saturate(300%) hue-rotate(10deg)`;
+        }
+
+        function animate() {
+            if (!isPaused) {
+                frameCount++;
+                switch(currentMode) {
+                    case 0: effectWeaver(); break;
+                    case 1: effectMelter(); break;
+                    case 2: effectGhost(); break;
+                    case 3: effectTunnel(); break;
+                    case 4: effectStainedGlass(); break;
+                    case 5: effectShivasDream(); break;
+                    case 6: effectOlympus(); break;
+                    case 7: effectHeavensGate(); break;
+                    case 8: effectInfernalPit(); break;
+                }
+            }
+            animationId = requestAnimationFrame(animate);
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            for(let i=0; i<MODE_COUNT; i++) {
+                const btn = document.getElementById(`btn${i}`);
+                if (btn) btn.classList.remove('active');
+            }
+            document.getElementById(`btn${mode}`).classList.add('active');
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0,0,width,height);
+            canvas.style.filter = 'none';
+        }
+
+        function togglePause() {
+            isPaused = !isPaused;
+            const btn = document.getElementById('pauseBtn');
+            btn.innerText = isPaused ? "Resume" : "Freeze";
+            if (isPaused) {
+                btn.style.background = "red";
+                btn.style.borderColor = "red";
+            } else {
+                btn.style.background = "transparent";
+                btn.style.borderColor = "#fff";
+            }
+        }
+
+        function saveImage() {
+            const link = document.createElement('a');
+            link.download = `acid_trip_${Date.now()}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+    </script>
+</body>
+</html>
