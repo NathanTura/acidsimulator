@@ -2,9 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ACID CAM v3.5 (Mobile Optimized)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Psychedelic Camera Tapestry (The Deep Dive)</title>
     <style>
+        /* Base Styles */
         body, html {
             margin: 0;
             padding: 0;
@@ -13,7 +14,6 @@
             background-color: #000;
             overflow: hidden;
             font-family: 'Courier New', Courier, monospace;
-            touch-action: none; /* Prevents zooming/scrolling on mobile */
         }
 
         #container {
@@ -31,8 +31,9 @@
             display: block;
             width: 100%;
             height: 100%;
-            /* This ensures the low-res canvas looks smooth, not blocky */
-            image-rendering: auto; 
+            object-fit: cover;
+            /* Performance hint */
+            will-change: transform, filter; 
         }
 
         /* Start Screen Overlay */
@@ -51,7 +52,7 @@
         }
 
         #start-btn {
-            font-size: 20px;
+            font-size: 24px;
             padding: 15px 30px;
             background: #ff00ff;
             border: 2px solid #ff00ff;
@@ -63,7 +64,13 @@
             text-transform: uppercase;
             font-family: 'Courier New', Courier, monospace;
             font-weight: bold;
-            -webkit-tap-highlight-color: transparent;
+            transition: all 0.3s;
+        }
+
+        #start-btn:hover {
+            background: #fff;
+            color: #ff00ff;
+            box-shadow: 0 0 40px #ff00ff;
         }
 
         @keyframes pulse {
@@ -77,68 +84,66 @@
             margin-top: 20px;
             text-align: center;
             background: rgba(50, 0, 0, 0.8);
-            padding: 10px;
+            padding: 15px;
             border-radius: 10px;
             display: none;
-            font-size: 12px;
-            max-width: 80%;
         }
 
         /* UI Overlay */
         #ui-layer {
             position: absolute;
-            bottom: 0;
+            bottom: 20px;
             left: 0;
             width: 100%;
-            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
             pointer-events: none;
             z-index: 10;
             display: none;
-            flex-direction: column;
-            justify-content: flex-end;
-            padding-bottom: 20px;
         }
 
         .controls {
             pointer-events: auto;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 10px;
-            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(0, 0, 0, 0.6);
+            padding: 15px;
+            border-radius: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
             backdrop-filter: blur(5px);
             display: flex;
-            gap: 8px;
-            overflow-x: auto; /* Scrollable buttons on small screens */
-            width: 100%;
-            box-sizing: border-box;
-            -webkit-overflow-scrolling: touch;
-            padding-bottom: 20px; /* Space for home bar on iOS */
-        }
-
-        /* Hide scrollbar for controls */
-        .controls::-webkit-scrollbar {
-            display: none;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 90%;
         }
 
         button.control-btn {
-            background: rgba(255,255,255,0.1);
+            background: transparent;
             color: #fff;
-            border: 1px solid rgba(255,255,255,0.3);
-            padding: 10px 15px;
+            border: 1px solid #fff;
+            padding: 8px 16px;
             cursor: pointer;
-            font-size: 12px;
+            font-size: 14px;
             text-transform: uppercase;
-            border-radius: 8px;
+            border-radius: 20px;
+            transition: all 0.2s ease;
             font-weight: bold;
+            letter-spacing: 1px;
             white-space: nowrap;
-            flex-shrink: 0; /* Prevents squishing */
-            -webkit-tap-highlight-color: transparent;
+        }
+
+        button.control-btn:hover {
+            background: #fff;
+            color: #000;
+            box-shadow: 0 0 15px #fff;
         }
 
         button.active {
             background: #ff00ff;
             border-color: #ff00ff;
             color: #fff;
-            box-shadow: 0 0 10px #ff00ff;
+            box-shadow: 0 0 15px #ff00ff;
         }
 
         #title-overlay {
@@ -146,12 +151,22 @@
             top: 20px;
             left: 20px;
             color: white;
-            font-size: 18px;
+            font-size: 24px;
             font-weight: bold;
             mix-blend-mode: exclusion;
             pointer-events: none;
             display: none;
-            text-shadow: 0 0 5px rgba(0,0,0,0.5);
+        }
+
+        @media (max-width: 600px) {
+            .controls {
+                padding: 10px;
+                gap: 5px;
+            }
+            button.control-btn {
+                font-size: 10px;
+                padding: 6px 10px;
+            }
         }
     </style>
 </head>
@@ -159,31 +174,27 @@
 
     <div id="container">
         <div id="start-overlay">
-            <h1 style="color:white; margin-bottom: 30px; font-family: 'Courier New'; text-align: center;">ACID_CAM_v3.5</h1>
-            <button id="start-btn" onclick="initExperience()">Start Camera</button>
+            <h1 style="color:white; margin-bottom: 30px; font-family: 'Courier New'; text-align: center;">ACID_CAM_DEEP_DIVE</h1>
+            <button id="start-btn" onclick="initExperience()">ENTER THE VOID</button>
             <div id="error-msg"></div>
-            <p style="color: #666; font-size: 10px; margin-top: 20px;">Optimized for Mobile Performance</p>
         </div>
 
-        <div id="title-overlay">ACID_CAM_v3.5</div>
+        <div id="title-overlay">ACID_CAM_DEEP_DIVE</div>
         
         <video id="videoElement" autoplay playsinline muted></video>
         <canvas id="canvasElement"></canvas>
 
         <div id="ui-layer">
             <div class="controls">
-                <button onclick="setMode(0)" id="btn0" class="control-btn active">Weaver</button>
-                <button onclick="setMode(1)" id="btn1" class="control-btn">Melter</button>
-                <button onclick="setMode(2)" id="btn2" class="control-btn">Ghost</button>
-                <button onclick="setMode(3)" id="btn3" class="control-btn">Tunnel</button>
-                <button onclick="setMode(4)" id="btn4" class="control-btn">Glass</button>
-                <button onclick="setMode(5)" id="btn5" class="control-btn">Shiva</button>
-                <button onclick="setMode(6)" id="btn6" class="control-btn">Olympus</button>
-                <button onclick="setMode(7)" id="btn7" class="control-btn">Heaven</button>
-                <button onclick="setMode(8)" id="btn8" class="control-btn">Inferno</button>
+                <button onclick="setMode(0)" id="btn0" class="control-btn active">Breathing Wall</button>
+                <button onclick="setMode(1)" id="btn1" class="control-btn">Rippling Melt</button>
+                <button onclick="setMode(2)" id="btn2" class="control-btn">Neon Tracer</button>
+                <button onclick="setMode(3)" id="btn3" class="control-btn">Kaleidoscope</button>
+                <button onclick="setMode(4)" id="btn4" class="control-btn">Infinite Tunnel</button>
+                <button onclick="setMode(5)" id="btn5" class="control-btn">Synesthesia</button>
                 <button onclick="switchCamera()" class="control-btn" style="border-color: cyan; color: cyan;">Flip 🔄</button>
-                <button onclick="togglePause()" id="pauseBtn" class="control-btn">Stop</button>
-                <button onclick="saveImage()" class="control-btn">Save</button>
+                <button onclick="togglePause()" id="pauseBtn" class="control-btn">Freeze</button>
+                <button onclick="saveImage()" class="control-btn">Snap 📸</button>
             </div>
         </div>
     </div>
@@ -191,51 +202,45 @@
     <script>
         const video = document.getElementById('videoElement');
         const canvas = document.getElementById('canvasElement');
-        // 'willReadFrequently' optimization is crucial for mobile
-        const ctx = canvas.getContext('2d', { willReadFrequently: true, alpha: false });
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
         const startOverlay = document.getElementById('start-overlay');
         const startBtn = document.getElementById('start-btn');
         const errorMsg = document.getElementById('error-msg');
         const uiLayer = document.getElementById('ui-layer');
         const titleOverlay = document.getElementById('title-overlay');
         
-        // --- MOBILE OPTIMIZATION SETTINGS ---
-        // We detect mobile and drastically lower the internal resolution
-        // The CSS scales it back up, so it looks full screen but processes 75% fewer pixels
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        const resolutionScale = isMobile ? 0.4 : 1.0; 
-        
-        let width, height;
+        let width = window.innerWidth;
+        let height = window.innerHeight;
         let animationId;
         let isPaused = false;
         let frameCount = 0;
         let currentMode = 0;
-        const MODE_COUNT = 9;
-
-        let currentFacingMode = 'environment'; // Default to back camera on phone for better quality
+        const MODE_COUNT = 6;
+        let currentFacingMode = 'user';
         let currentStream = null;
-
-        // Temporary canvas for "fake blur" effect (much faster than ctx.filter)
-        const tempCanvas = document.createElement('canvas');
-        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+        let sourceData; // To hold previous canvas pixel data for distortions
+        let imageData = ctx.createImageData(width, height); // Initialize for speed
+        const PI = Math.PI;
 
         function initExperience() {
-            startBtn.innerText = "LOADING...";
+            startBtn.innerText = "CONNECTING...";
             startBtn.disabled = true;
             startCamera();
         }
 
         async function startCamera() {
+            // ... (Camera setup logic from your original code remains here) ...
             if (currentStream) {
-                currentStream.getTracks().forEach(track => track.stop());
+                currentStream.getTracks().forEach(track => {
+                    track.stop();
+                });
             }
 
             try {
-                // Mobile constraint: Ask for lower resolution stream to save bandwidth/processing
                 const constraints = { 
                     video: { 
-                        width: { ideal: isMobile ? 640 : 1920 },
-                        height: { ideal: isMobile ? 480 : 1080 },
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 },
                         facingMode: { exact: currentFacingMode }
                     }, 
                     audio: false 
@@ -244,9 +249,10 @@
                 try {
                     currentStream = await navigator.mediaDevices.getUserMedia(constraints);
                 } catch(e) {
-                    // Fallback if exact facingMode fails
                     currentStream = await navigator.mediaDevices.getUserMedia({ 
-                        video: { facingMode: currentFacingMode }, 
+                        video: { 
+                            facingMode: currentFacingMode 
+                        }, 
                         audio: false 
                     });
                 }
@@ -259,7 +265,9 @@
                         titleOverlay.style.display = 'block';
                         resizeCanvas();
                         if (!animationId) animate();
-                    }).catch(e => handleError(e)); 
+                    }).catch(e => {
+                        handleError("Video Play Error: " + e.message);
+                    }); 
                 };
             } catch (err) {
                 handleError(err);
@@ -272,278 +280,314 @@
         }
 
         function handleError(err) {
-            console.error(err);
+            console.error("Camera error:", err);
             startBtn.innerText = "RETRY";
             startBtn.disabled = false;
             errorMsg.style.display = "block";
-            errorMsg.innerHTML = `<strong>ERROR:</strong> ${err.message}<br>Try opening in Safari (iOS) or Chrome (Android).`;
+            let msg = err.message || err.toString();
+            errorMsg.innerHTML = `<strong>ERROR:</strong> ${msg}`;
         }
 
         function resizeCanvas() {
-            // Set internal resolution based on scale factor
-            width = window.innerWidth * resolutionScale;
-            height = window.innerHeight * resolutionScale;
-            
-            // Set Canvas drawing size (Low Res)
+            width = window.innerWidth;
+            height = window.innerHeight;
             canvas.width = width;
             canvas.height = height;
-            
-            // Temp canvas for blur tricks (Very Low Res)
-            tempCanvas.width = width * 0.2; 
-            tempCanvas.height = height * 0.2;
-
+            imageData = ctx.createImageData(width, height); // Re-initialize imageData buffer
             ctx.fillStyle = "black";
             ctx.fillRect(0, 0, width, height);
         }
 
-        window.addEventListener('resize', () => {
-            // Debounce resize on mobile to prevent flickering url bar issues
-            setTimeout(resizeCanvas, 100);
-        });
+        window.addEventListener('resize', resizeCanvas);
 
-        // Helper to draw video proportionally
         function drawVideoFit(context, videoElement, cW, cH) {
             if (videoElement.videoWidth === 0) return;
+
             const vRatio = videoElement.videoWidth / videoElement.videoHeight;
             const cRatio = cW / cH;
             let dw, dh;
             if (cRatio > vRatio) {
-                dw = cW; dh = cW / vRatio;
-            } else {
                 dh = cH; dw = cH * vRatio;
+            } else {
+                dw = cW; dh = cW / vRatio;
             }
             context.drawImage(videoElement, (cW - dw)/2, (cH - dh)/2, dw, dh);
         }
-
-        // --- OPTIMIZED EFFECTS ---
-
-        function effectWeaver() {
+        
+        // --- CORE PIXEL MANIPULATION HELPER ---
+        // This function will be used by multiple modes for dynamic distortion
+        function applyPixelManipulation(time, distortionFn) {
+            // 1. Draw the current video frame to the canvas
             ctx.globalCompositeOperation = 'source-over';
-            ctx.fillStyle = `rgba(0, 0, 0, 0.05)`; // Fast fade
+            drawVideoFit(ctx, video, width, height);
+            sourceData = ctx.getImageData(0, 0, width, height).data;
+            
+            // 2. Get the destination pixel array
+            const destData = imageData.data;
+
+            const centerX = width / 2;
+            const centerY = height / 2;
+            
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const i = (y * width + x) * 4; // Destination pixel index
+
+                    // Get warped source coordinates from the mode's distortion function
+                    const { srcX, srcY, colorR, colorG, colorB } = distortionFn(x, y, time, centerX, centerY, width, height, sourceData, i);
+
+                    // Calculate index for the source pixel
+                    let srcI = (Math.min(height - 1, Math.max(0, Math.floor(srcY))) * width + 
+                                Math.min(width - 1, Math.max(0, Math.floor(srcX)))) * 4;
+                    
+                    // --- FINAL COLOR MIXING ---
+                    // If distortion function provided specific colors, use them
+                    const r = colorR !== undefined ? colorR : sourceData[srcI];
+                    const g = colorG !== undefined ? colorG : sourceData[srcI + 1];
+                    const b = colorB !== undefined ? colorB : sourceData[srcI + 2];
+                    
+                    destData[i]     = r;
+                    destData[i + 1] = g;
+                    destData[i + 2] = b;
+                    destData[i + 3] = 255; // Alpha
+                }
+            }
+            
+            // 3. Put manipulated data back
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        // --- VISUAL EFFECTS (REFINED) ---
+
+        // MODE 0: BREATHING WALL (Fluid, rippling distortion and intense neon glow)
+        function effectBreathingWall() {
+            // 1. Trailing effect (like a fast fade)
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
             ctx.fillRect(0, 0, width, height);
             
-            ctx.globalCompositeOperation = 'exclusion';
-            ctx.save();
-            ctx.translate(width / 2, height / 2);
-            ctx.rotate(Math.sin(frameCount * 0.02) * 0.2);
-            const scale = 1 + Math.sin(frameCount * 0.04) * 0.1; 
-            ctx.scale(scale, scale);
-            if (video.readyState >= 2) {
-                 drawVideoFit(ctx, video, width, height); // Simplified draw
-            }
-            ctx.restore();
-            
-            // Simple feedback
-            ctx.globalCompositeOperation = 'lighter';
-            ctx.drawImage(canvas, -2, -2, width+4, height+4); // Slight zoom feedback
-            
-            // CSS filter does the heavy lifting for color
-            canvas.style.filter = `hue-rotate(${frameCount * 2}deg) contrast(1.5)`;
-        }
-
-        function effectMelter() {
-            ctx.globalCompositeOperation = 'source-over';
-            
-            // 1. Feedback Loop (The Melt)
-            ctx.save();
-            ctx.translate(width / 2, height / 2);
-            // We use simple transforms. No expensive pixel manipulation.
-            const stretchX = 1.02 + Math.sin(frameCount * 0.1) * 0.02; 
-            const meltY = 1.01; 
-            ctx.scale(stretchX, meltY);
-            ctx.drawImage(canvas, -width/2, -height/2, width, height);
-            ctx.restore();
-
-            // 2. New Frame
-            ctx.globalCompositeOperation = 'hard-light';
-            if (video.readyState >= 2) {
-                drawVideoFit(ctx, video, width, height);
-            }
-
-            // 3. Scanlines (Cheap visual trick)
-            if (frameCount % 3 === 0) {
-                 ctx.globalCompositeOperation = 'source-over';
-                 ctx.fillStyle = 'rgba(0,0,0,0.2)';
-                 ctx.fillRect(0, (frameCount * 5) % height, width, 10);
-            }
-            
-            canvas.style.filter = `contrast(150%) saturate(200%) hue-rotate(${frameCount}deg)`;
-        }
-
-        function effectGhost() {
-            // Optimized Ghost: No ctx.filter, uses Difference blending
-            ctx.globalCompositeOperation = 'source-over';
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.15)'; // Stronger fade for performance
-            ctx.fillRect(0, 0, width, height);
-
-            if (video.readyState >= 2) {
-                // Edge detection via difference
-                ctx.globalCompositeOperation = 'difference';
-                ctx.save();
-                ctx.translate(width/2, height/2);
-                ctx.scale(1.05, 1.05);
-                ctx.translate(-width/2, -height/2);
-                drawVideoFit(ctx, video, width, height);
-                ctx.restore();
+            // 2. Pixel Distortion
+            applyPixelManipulation(frameCount / 60, (x, y, time, cX, cY, w, h, data, i) => {
+                const distToCenter = Math.sqrt((x - cX) ** 2 + (y - cY) ** 2);
                 
-                // Lighten blend for ghost trails
-                ctx.globalCompositeOperation = 'screen';
-                drawVideoFit(ctx, video, width, height);
-            }
-            canvas.style.filter = 'contrast(200%) brightness(120%)';
-        }
-
-        function effectTunnel() {
-            ctx.globalCompositeOperation = 'source-over';
-            ctx.globalAlpha = 0.2;
-            if (video.readyState >= 2) drawVideoFit(ctx, video, width, height);
-            ctx.globalAlpha = 0.9;
-            ctx.globalCompositeOperation = 'lighter'; 
-            
-            ctx.drawImage(canvas, -width*0.02, -height*0.02, width*1.04, height*1.04);
-            
-            ctx.globalCompositeOperation = 'difference';
-            ctx.fillStyle = `hsla(${(frameCount * 2) % 360}, 100%, 50%, 0.1)`;
-            ctx.fillRect(0,0,width,height);
-            ctx.globalAlpha = 1.0;
-            canvas.style.filter = `hue-rotate(-${frameCount}deg)`;
-        }
-
-        function effectGlass() {
-             // Pixelation via downscaling (Fastest way to do mosaic)
-             if (video.readyState >= 2) {
-                const blockSize = 15; // Lower res
-                const smallW = width / blockSize;
-                const smallH = height / blockSize;
+                // Fluid Distortion based on time and distance (Breathing/Rippling)
+                const displacement = 40 * Math.sin(time * 2 + distToCenter * 0.015);
+                const angle = Math.atan2(y - cY, x - cX);
                 
-                // Draw tiny
-                tempCtx.drawImage(video, 0, 0, smallW, smallH);
+                const srcX = x + Math.cos(angle) * displacement;
+                const srcY = y + Math.sin(angle) * displacement;
                 
-                // Draw big (Automatic nearest-neighborish look depending on browser)
-                ctx.globalCompositeOperation = 'source-over';
-                ctx.drawImage(tempCanvas, 0, 0, smallW, smallH, 0, 0, width, height);
+                // Color Enhancement (Neon Glow / Color Intensification)
+                const colorShift = Math.sin(time * 1.5) * 0.5 + 1.5;
                 
-                // Overlay previous frame
-                ctx.globalCompositeOperation = 'overlay';
-                ctx.drawImage(canvas, -5, -5, width+10, height+10);
-             }
-             canvas.style.filter = `saturate(300%) contrast(150%) hue-rotate(${frameCount}deg)`;
-        }
+                let srcI = (Math.min(h - 1, Math.max(0, Math.floor(srcY))) * w + 
+                            Math.min(w - 1, Math.max(0, Math.floor(srcX)))) * 4;
+                
+                const r = Math.min(255, data[srcI] * colorShift);
+                const g = Math.min(255, data[srcI + 1] * (colorShift * 0.7));
+                const b = Math.min(255, data[srcI + 2] * (colorShift * 1.3));
 
-        function effectShiva() {
+                return { srcX, srcY, colorR: r, colorG: g, colorB: b };
+            });
+
+            // 3. CSS Filter for overall color swirl
+            canvas.style.filter = `hue-rotate(${frameCount * 2}deg) contrast(150%) saturate(300%)`;
+        }
+        
+        // MODE 1: RIPPLING MELT (Chaotic, horizontal/vertical smearing and color burn)
+        function effectRipplingMelt() {
+            // 1. Aggressive Fade
             ctx.globalCompositeOperation = 'source-over';
             ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
             ctx.fillRect(0, 0, width, height);
+
+            // 2. Pixel Distortion (Melting)
+            applyPixelManipulation(frameCount / 60, (x, y, time, cX, cY, w, h, data, i) => {
+                // Horizontal/Vertical melt displacement based on sine wave and position
+                const dx = 10 * Math.sin(time * 3 + y * 0.05);
+                const dy = 5 * Math.cos(time * 2 + x * 0.03);
+
+                const srcX = x + dx;
+                const srcY = y + dy;
+                
+                // Color Manipulation (Color Burn/Intensification)
+                let srcI = (Math.min(h - 1, Math.max(0, Math.floor(srcY))) * w + 
+                            Math.min(w - 1, Math.max(0, Math.floor(srcX)))) * 4;
+                
+                const r = data[srcI] * 1.5;
+                const g = data[srcI + 1] * 0.5;
+                const b = data[srcI + 2] * 2.0;
+
+                return { srcX, srcY, colorR: r, colorG: g, colorB: b };
+            });
+
+            // 3. Blending layers
+            ctx.globalCompositeOperation = 'color-burn';
+            ctx.fillStyle = `hsla(${(frameCount * 4) % 360}, 100%, 50%, 0.1)`;
+            ctx.fillRect(0, 0, width, height);
+
+            // 4. CSS Filter
+            canvas.style.filter = `brightness(120%) saturate(250%) contrast(180%)`;
+        }
+
+        // MODE 2: NEON TRACER (Motion trails and halo effects using canvas history)
+        function effectNeonTracer() {
+            // 1. Very faint fade (long trails)
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.01)';
+            ctx.fillRect(0, 0, width, height);
             
-            // Trail
+            // 2. Draw current video with Lighter blend (Halo/Starburst effect)
             ctx.globalCompositeOperation = 'lighter';
-            ctx.drawImage(canvas, -2, -2, width+4, height+4);
+            ctx.globalAlpha = 0.8;
+            drawVideoFit(ctx, video, width, height);
 
-            if (video.readyState >= 2) {
-                ctx.globalCompositeOperation = 'difference';
+            // 3. Self-Displacement (Tracers / Motion trails)
+            ctx.globalCompositeOperation = 'screen';
+            ctx.globalAlpha = 0.6;
+            
+            // Draw the canvas history offset for smearing/trailing
+            const trailX = 10 * Math.sin(frameCount * 0.1);
+            const trailY = 5 * Math.cos(frameCount * 0.15);
+            ctx.drawImage(canvas, trailX, trailY, width, height);
+
+            // 4. CSS Filter (Strong neon colors)
+            canvas.style.filter = `hue-rotate(${frameCount * 3}deg) brightness(200%) saturate(300%) invert(10%)`;
+        }
+
+        // MODE 3: KALEIDOSCOPE (Radial symmetry without perfect geometry)
+        function effectKaleidoscope() {
+            // 1. Faint fade
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+            ctx.fillRect(0, 0, width, height);
+            
+            // 2. Draw multiple mirrored/rotated instances
+            const pieces = 8;
+            const pieceAngle = (2 * PI) / pieces;
+            const time = frameCount / 60;
+
+            for (let i = 0; i < pieces; i++) {
                 ctx.save();
+                ctx.globalCompositeOperation = 'difference'; 
+                ctx.globalAlpha = 0.9;
+                
                 ctx.translate(width / 2, height / 2);
-                const fluidRot = Math.sin(frameCount * 0.02) * 0.1;
-                ctx.rotate(fluidRot);
-                // Reduce loop count for mobile from 3 to 2
-                for (let i = 0; i < 2; i++) {
-                    ctx.save();
-                    ctx.rotate(i * (Math.PI / 2) + frameCount * 0.01);
-                    ctx.globalAlpha = 0.5;
-                    drawVideoFit(ctx, video, width, height);
-                    ctx.restore();
+                ctx.rotate(i * pieceAngle + time * 0.1);
+                
+                // Chaotic scale and wobble
+                const wobble = 0.5 + Math.sin(time * 0.5 + i) * 0.1;
+                ctx.scale(wobble, wobble);
+
+                // Mirror every other piece for kaleidoscope symmetry
+                if (i % 2 === 0) {
+                    ctx.scale(-1, 1);
                 }
+                
+                // Draw the video. We translate it back before drawing to cover the view.
+                if (video.readyState >= 2) drawVideoFit(ctx, video, width, height);
                 ctx.restore();
             }
+
+            // 3. CSS Filter
+            canvas.style.filter = `hue-rotate(${frameCount}deg) saturate(200%)`;
+        }
+        
+        // MODE 4: INFINITE TUNNEL (Vortex/Spiral effect)
+        function effectInfiniteTunnel() {
+            // 1. Draw previous frame aggressively scaled down (creates the tunnel)
+            ctx.globalCompositeOperation = 'source-over';
             ctx.globalAlpha = 1.0;
-            canvas.style.filter = `invert(100%) hue-rotate(${frameCount * 0.4}deg)`;
+            ctx.save();
+            ctx.translate(width / 2, height / 2);
+            ctx.rotate(frameCount * 0.005); // Continuous, slow spiral
+            
+            const scale = 0.96; // Aggressive zoom in
+            ctx.scale(scale, scale);
+            
+            ctx.drawImage(canvas, -width / 2, -height / 2, width, height);
+            ctx.restore();
+            
+            // 2. Draw current video frame to fill the center hole
+            ctx.globalCompositeOperation = 'difference';
+            ctx.globalAlpha = 1.0;
+            drawVideoFit(ctx, video, width, height);
+
+            // 3. Add pulsating color overlay
+            ctx.globalCompositeOperation = 'overlay';
+            ctx.fillStyle = `hsla(${frameCount * 2 % 360}, 100%, 50%, 0.2)`;
+            ctx.fillRect(0, 0, width, height);
+
+            // 4. CSS Filter
+            canvas.style.filter = `contrast(150%) saturate(150%)`;
         }
 
-        function effectOlympus() {
+        // MODE 5: SYNESTHESIA (Seeing sounds / Shifting textures - using random pixel blocks)
+        function effectSynesthesia() {
+            // 1. Draw video frame
             ctx.globalCompositeOperation = 'source-over';
-            ctx.fillStyle = `rgba(20, 10, 0, 0.2)`; 
+            drawVideoFit(ctx, video, width, height);
+            
+            // 2. Read pixels
+            sourceData = ctx.getImageData(0, 0, width, height).data;
+            const destData = imageData.data;
+
+            const time = frameCount / 60;
+            const blockSize = 15 + Math.floor(Math.sin(time * 5) * 10); // Pulsating block size
+            const shiftStrength = 50 + 50 * Math.cos(time * 2); // Pulsating shift strength
+
+            for (let y = 0; y < height; y += blockSize) {
+                for (let x = 0; x < width; x += blockSize) {
+                    // Calculate a distortion offset based on block position (texture shift)
+                    const noise = Math.sin(x * 0.05 + time) * Math.cos(y * 0.03 + time * 1.5) * shiftStrength;
+
+                    // Get the average color of the current block
+                    const blockI = (y * width + x) * 4;
+                    const r_avg = sourceData[blockI];
+                    const g_avg = sourceData[blockI + 1];
+                    const b_avg = sourceData[blockI + 2];
+
+                    // Draw the entire block
+                    for (let blockY = 0; blockY < blockSize && y + blockY < height; blockY++) {
+                        for (let blockX = 0; blockX < blockSize && x + blockX < width; blockX++) {
+                            const destI = ((y + blockY) * width + (x + blockX)) * 4;
+                            
+                            // Apply color shift (like 'hearing colors')
+                            const r = Math.min(255, r_avg + noise);
+                            const g = Math.min(255, g_avg - noise * 0.5);
+                            const b = Math.min(255, b_avg + noise * 0.2);
+
+                            destData[destI]     = r;
+                            destData[destI + 1] = g;
+                            destData[destI + 2] = b;
+                            destData[destI + 3] = 255;
+                        }
+                    }
+                }
+            }
+            ctx.putImageData(imageData, 0, 0);
+
+            // 3. Faint trailing effect over the top
+            ctx.globalCompositeOperation = 'difference';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
             ctx.fillRect(0, 0, width, height);
             
-            if (video.readyState >= 2) {
-                ctx.globalCompositeOperation = 'lighter';
-                ctx.save();
-                ctx.translate(width/2, height/2);
-                ctx.scale(0.6, 0.6); 
-                ctx.rotate(frameCount * 0.005); 
-                
-                // Just 2 draws instead of 4 for mobile performance
-                ctx.drawImage(video, -width, -height, width, height);
-                ctx.scale(-1, -1); 
-                ctx.drawImage(video, -width, -height, width, height);
-
-                ctx.restore();
-            }
-            canvas.style.filter = `contrast(130%) brightness(130%) sepia(50%)`;
-        }
-
-        function effectHeaven() {
-            // Optimized Heaven: FAKE BLUR using downscaling
-            
-            // 1. Fade old frames (Trails)
-            ctx.globalCompositeOperation = 'source-over';
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.1)'; 
-            ctx.fillRect(0, 0, width, height);
-            
-            if (video.readyState >= 2) {
-                // 2. Feedback loop (Zoom out)
-                ctx.drawImage(canvas, width*0.01, height*0.01, width*0.98, height*0.98);
-
-                // 3. FAKE BLUR: Draw video small to temp canvas, then draw big
-                // This simulates blur without the CPU cost
-                tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
-
-                ctx.globalCompositeOperation = 'screen';
-                ctx.globalAlpha = 0.5;
-                // Draw the tiny image stretched - natural blur!
-                ctx.drawImage(tempCanvas, 0, 0, tempCanvas.width, tempCanvas.height, 0, 0, width, height);
-                
-                // Draw sharp video on top at low opacity
-                ctx.globalAlpha = 0.3;
-                drawVideoFit(ctx, video, width, height);
-            }
-
-            ctx.globalAlpha = 1.0;
-            canvas.style.filter = 'grayscale(100%) brightness(130%) contrast(110%)';
-        }
-
-        function effectInferno() {
-             ctx.globalCompositeOperation = 'source-over';
-             ctx.fillStyle = 'rgba(50, 0, 0, 0.2)'; 
-             ctx.fillRect(0, 0, width, height);
-             
-             ctx.globalCompositeOperation = 'lighter';
-             if (video.readyState >= 2) {
-                 ctx.save();
-                 ctx.translate(width/2, height/2);
-                 ctx.rotate(frameCount * 0.02);
-                 ctx.scale(1.1, 1.1);
-                 ctx.drawImage(canvas, -width/2, -height/2, width, height);
-                 ctx.restore();
-                 
-                 ctx.globalCompositeOperation = 'difference';
-                 drawVideoFit(ctx, video, width, height);
-             }
-             canvas.style.filter = `brightness(150%) hue-rotate(-20deg) saturate(200%)`;
+            // 4. CSS Filter
+            canvas.style.filter = `invert(100%) hue-rotate(${frameCount * 0.5}deg) contrast(150%)`;
         }
 
         function animate() {
-            if (!isPaused) {
+            if (!isPaused && video.readyState >= 2) {
                 frameCount++;
+                // Clear CSS filter for a clean base each frame
+                canvas.style.filter = 'none'; 
+
                 switch(currentMode) {
-                    case 0: effectWeaver(); break;
-                    case 1: effectMelter(); break;
-                    case 2: effectGhost(); break;
-                    case 3: effectTunnel(); break;
-                    case 4: effectGlass(); break;
-                    case 5: effectShiva(); break;
-                    case 6: effectOlympus(); break;
-                    case 7: effectHeaven(); break;
-                    case 8: effectInferno(); break;
+                    case 0: effectBreathingWall(); break;
+                    case 1: effectRipplingMelt(); break;
+                    case 2: effectNeonTracer(); break;
+                    case 3: effectKaleidoscope(); break;
+                    case 4: effectInfiniteTunnel(); break;
+                    case 5: effectSynesthesia(); break;
                 }
             }
             animationId = requestAnimationFrame(animate);
@@ -551,10 +595,13 @@
 
         function setMode(mode) {
             currentMode = mode;
-            document.querySelectorAll('.control-btn').forEach(b => b.classList.remove('active'));
+            for(let i=0; i<MODE_COUNT; i++) {
+                const btn = document.getElementById(`btn${i}`);
+                if (btn) btn.classList.remove('active');
+            }
             document.getElementById(`btn${mode}`).classList.add('active');
             
-            // Reset canvas state
+            // Clear canvas and set filter to none when switching modes
             ctx.globalCompositeOperation = 'source-over';
             ctx.fillStyle = 'black';
             ctx.fillRect(0,0,width,height);
@@ -564,14 +611,20 @@
         function togglePause() {
             isPaused = !isPaused;
             const btn = document.getElementById('pauseBtn');
-            btn.innerText = isPaused ? "Resume" : "Stop";
-            btn.style.background = isPaused ? "red" : "rgba(255,255,255,0.1)";
+            btn.innerText = isPaused ? "Resume" : "Freeze";
+            if (isPaused) {
+                btn.style.background = "red";
+                btn.style.borderColor = "red";
+            } else {
+                btn.style.background = "transparent";
+                btn.style.borderColor = "#fff";
+            }
         }
 
         function saveImage() {
             const link = document.createElement('a');
-            link.download = `trippy_${Date.now()}.jpg`;
-            link.href = canvas.toDataURL('image/jpeg', 0.8);
+            link.download = `acid_trip_${Date.now()}.png`;
+            link.href = canvas.toDataURL();
             link.click();
         }
     </script>
