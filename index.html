@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Psychedelic Camera Tapestry (The Deep Dive)</title>
     <style>
         /* Base Styles */
@@ -32,8 +32,8 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            /* Performance hint */
             will-change: transform, filter; 
+            transition: opacity 1s ease-in-out; /* For effect transition */
         }
 
         /* Start Screen Overlay */
@@ -146,6 +146,13 @@
             box-shadow: 0 0 15px #ff00ff;
         }
 
+        button.random-active {
+            background: cyan;
+            border-color: cyan;
+            color: #000;
+            box-shadow: 0 0 15px cyan;
+        }
+
         #title-overlay {
             position: absolute;
             top: 20px;
@@ -156,6 +163,7 @@
             mix-blend-mode: exclusion;
             pointer-events: none;
             display: none;
+            transition: opacity 0.5s;
         }
 
         @media (max-width: 600px) {
@@ -192,7 +200,8 @@
                 <button onclick="setMode(3)" id="btn3" class="control-btn">Kaleidoscope</button>
                 <button onclick="setMode(4)" id="btn4" class="control-btn">Infinite Tunnel</button>
                 <button onclick="setMode(5)" id="btn5" class="control-btn">Synesthesia</button>
-                <button onclick="switchCamera()" class="control-btn" style="border-color: cyan; color: cyan;">Flip 🔄</button>
+                <button onclick="toggleRandomMode()" id="btnRandom" class="control-btn" style="border-color: yellow; color: yellow;">Random 🔀</button>
+                <button onclick="switchCamera()" id="btnCamera" class="control-btn" style="border-color: cyan; color: cyan; display:none;">Flip 🔄</button>
                 <button onclick="togglePause()" id="pauseBtn" class="control-btn">Freeze</button>
                 <button onclick="saveImage()" class="control-btn">Snap 📸</button>
             </div>
@@ -208,6 +217,8 @@
         const errorMsg = document.getElementById('error-msg');
         const uiLayer = document.getElementById('ui-layer');
         const titleOverlay = document.getElementById('title-overlay');
+        const btnCamera = document.getElementById('btnCamera');
+        const btnRandom = document.getElementById('btnRandom');
         
         let width = window.innerWidth;
         let height = window.innerHeight;
@@ -218,22 +229,48 @@
         const MODE_COUNT = 6;
         let currentFacingMode = 'user';
         let currentStream = null;
-        let sourceData; // To hold previous canvas pixel data for distortions
-        let imageData = ctx.createImageData(width, height); // Initialize for speed
+        let imageData = ctx.createImageData(width, height);
         const PI = Math.PI;
+        
+        // New variables for Random Mode
+        let randomInterval = null;
+        let isRandomMode = false;
+        
+        // New variable for Camera Detection
+        let hasMultipleCameras = false;
 
-        function initExperience() {
+        function isMobileDevice() {
+            return /Mobi|Android/i.test(navigator.userAgent);
+        }
+
+        async function initExperience() {
             startBtn.innerText = "CONNECTING...";
             startBtn.disabled = true;
+            await checkCameraCapabilities();
             startCamera();
         }
 
+        async function checkCameraCapabilities() {
+            // Check if multiple cameras are available to decide if the flip button is useful
+            if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+            
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                
+                // If we have more than one video device, or if it's mobile (assuming front/back)
+                if (videoDevices.length > 1 || isMobileDevice()) {
+                    hasMultipleCameras = true;
+                    btnCamera.style.display = 'block';
+                }
+            } catch (e) {
+                console.error("Error enumerating devices:", e);
+            }
+        }
+
         async function startCamera() {
-            // ... (Camera setup logic from your original code remains here) ...
             if (currentStream) {
-                currentStream.getTracks().forEach(track => {
-                    track.stop();
-                });
+                currentStream.getTracks().forEach(track => track.stop());
             }
 
             try {
@@ -246,16 +283,7 @@
                     audio: false 
                 };
 
-                try {
-                    currentStream = await navigator.mediaDevices.getUserMedia(constraints);
-                } catch(e) {
-                    currentStream = await navigator.mediaDevices.getUserMedia({ 
-                        video: { 
-                            facingMode: currentFacingMode 
-                        }, 
-                        audio: false 
-                    });
-                }
+                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
                 
                 video.srcObject = currentStream;
                 video.onloadedmetadata = () => {
@@ -270,11 +298,34 @@
                     }); 
                 };
             } catch (err) {
-                handleError(err);
+                // Fallback for devices that don't support exact facingMode
+                if (err.name === 'OverconstrainedError' || err.name === 'NotFoundError') {
+                    try {
+                        currentStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                        video.srcObject = currentStream;
+                        video.onloadedmetadata = () => {
+                            // ... (rest of the success logic)
+                            video.play().then(() => {
+                                startOverlay.style.display = 'none';
+                                uiLayer.style.display = 'flex';
+                                titleOverlay.style.display = 'block';
+                                resizeCanvas();
+                                if (!animationId) animate();
+                            });
+                        };
+                    } catch (e) {
+                        handleError(err);
+                    }
+                } else {
+                    handleError(err);
+                }
             }
         }
 
         function switchCamera() {
+            // Stop Random Mode if active
+            if (isRandomMode) toggleRandomMode();
+            
             currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
             startCamera();
         }
@@ -293,7 +344,7 @@
             height = window.innerHeight;
             canvas.width = width;
             canvas.height = height;
-            imageData = ctx.createImageData(width, height); // Re-initialize imageData buffer
+            imageData = ctx.createImageData(width, height);
             ctx.fillStyle = "black";
             ctx.fillRect(0, 0, width, height);
         }
@@ -306,23 +357,27 @@
             const vRatio = videoElement.videoWidth / videoElement.videoHeight;
             const cRatio = cW / cH;
             let dw, dh;
+            let dx = 0, dy = 0;
+            
+            // Calculate dimensions for cover fit (fill entire canvas)
             if (cRatio > vRatio) {
+                // Canvas is wider than video, so video height fills canvas height
                 dh = cH; dw = cH * vRatio;
+                dx = (cW - dw) / 2;
             } else {
+                // Video is wider than canvas, so video width fills canvas width
                 dw = cW; dh = cW / vRatio;
+                dy = (cH - dh) / 2;
             }
-            context.drawImage(videoElement, (cW - dw)/2, (cH - dh)/2, dw, dh);
+            context.drawImage(videoElement, dx, dy, dw, dh);
         }
         
         // --- CORE PIXEL MANIPULATION HELPER ---
-        // This function will be used by multiple modes for dynamic distortion
         function applyPixelManipulation(time, distortionFn) {
-            // 1. Draw the current video frame to the canvas
             ctx.globalCompositeOperation = 'source-over';
+            ctx.globalAlpha = 1.0;
             drawVideoFit(ctx, video, width, height);
-            sourceData = ctx.getImageData(0, 0, width, height).data;
-            
-            // 2. Get the destination pixel array
+            const sourceData = ctx.getImageData(0, 0, width, height).data;
             const destData = imageData.data;
 
             const centerX = width / 2;
@@ -330,17 +385,13 @@
             
             for (let y = 0; y < height; y++) {
                 for (let x = 0; x < width; x++) {
-                    const i = (y * width + x) * 4; // Destination pixel index
+                    const i = (y * width + x) * 4; 
 
-                    // Get warped source coordinates from the mode's distortion function
                     const { srcX, srcY, colorR, colorG, colorB } = distortionFn(x, y, time, centerX, centerY, width, height, sourceData, i);
 
-                    // Calculate index for the source pixel
                     let srcI = (Math.min(height - 1, Math.max(0, Math.floor(srcY))) * width + 
                                 Math.min(width - 1, Math.max(0, Math.floor(srcX)))) * 4;
                     
-                    // --- FINAL COLOR MIXING ---
-                    // If distortion function provided specific colors, use them
                     const r = colorR !== undefined ? colorR : sourceData[srcI];
                     const g = colorG !== undefined ? colorG : sourceData[srcI + 1];
                     const b = colorB !== undefined ? colorB : sourceData[srcI + 2];
@@ -348,36 +399,30 @@
                     destData[i]     = r;
                     destData[i + 1] = g;
                     destData[i + 2] = b;
-                    destData[i + 3] = 255; // Alpha
+                    destData[i + 3] = 255;
                 }
             }
             
-            // 3. Put manipulated data back
             ctx.putImageData(imageData, 0, 0);
         }
 
-        // --- VISUAL EFFECTS (REFINED) ---
+        // --- VISUAL EFFECTS ---
 
-        // MODE 0: BREATHING WALL (Fluid, rippling distortion and intense neon glow)
+        // MODE 0: BREATHING WALL
         function effectBreathingWall() {
-            // 1. Trailing effect (like a fast fade)
             ctx.globalCompositeOperation = 'source-over';
             ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
             ctx.fillRect(0, 0, width, height);
             
-            // 2. Pixel Distortion
             applyPixelManipulation(frameCount / 60, (x, y, time, cX, cY, w, h, data, i) => {
                 const distToCenter = Math.sqrt((x - cX) ** 2 + (y - cY) ** 2);
-                
-                // Fluid Distortion based on time and distance (Breathing/Rippling)
                 const displacement = 40 * Math.sin(time * 2 + distToCenter * 0.015);
                 const angle = Math.atan2(y - cY, x - cX);
                 
                 const srcX = x + Math.cos(angle) * displacement;
                 const srcY = y + Math.sin(angle) * displacement;
                 
-                // Color Enhancement (Neon Glow / Color Intensification)
-                const colorShift = Math.sin(time * 1.5) * 0.5 + 1.5;
+                const colorShift = 0.5 * Math.sin(time * 1.5) + 1.5;
                 
                 let srcI = (Math.min(h - 1, Math.max(0, Math.floor(srcY))) * w + 
                             Math.min(w - 1, Math.max(0, Math.floor(srcX)))) * 4;
@@ -389,27 +434,22 @@
                 return { srcX, srcY, colorR: r, colorG: g, colorB: b };
             });
 
-            // 3. CSS Filter for overall color swirl
             canvas.style.filter = `hue-rotate(${frameCount * 2}deg) contrast(150%) saturate(300%)`;
         }
         
-        // MODE 1: RIPPLING MELT (Chaotic, horizontal/vertical smearing and color burn)
+        // MODE 1: RIPPLING MELT
         function effectRipplingMelt() {
-            // 1. Aggressive Fade
             ctx.globalCompositeOperation = 'source-over';
             ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
             ctx.fillRect(0, 0, width, height);
 
-            // 2. Pixel Distortion (Melting)
             applyPixelManipulation(frameCount / 60, (x, y, time, cX, cY, w, h, data, i) => {
-                // Horizontal/Vertical melt displacement based on sine wave and position
                 const dx = 10 * Math.sin(time * 3 + y * 0.05);
                 const dy = 5 * Math.cos(time * 2 + x * 0.03);
 
                 const srcX = x + dx;
                 const srcY = y + dy;
                 
-                // Color Manipulation (Color Burn/Intensification)
                 let srcI = (Math.min(h - 1, Math.max(0, Math.floor(srcY))) * w + 
                             Math.min(w - 1, Math.max(0, Math.floor(srcX)))) * 4;
                 
@@ -420,48 +460,49 @@
                 return { srcX, srcY, colorR: r, colorG: g, colorB: b };
             });
 
-            // 3. Blending layers
             ctx.globalCompositeOperation = 'color-burn';
             ctx.fillStyle = `hsla(${(frameCount * 4) % 360}, 100%, 50%, 0.1)`;
             ctx.fillRect(0, 0, width, height);
 
-            // 4. CSS Filter
             canvas.style.filter = `brightness(120%) saturate(250%) contrast(180%)`;
         }
 
-        // MODE 2: NEON TRACER (Motion trails and halo effects using canvas history)
+        // MODE 2: NEON TRACER (FIXED)
         function effectNeonTracer() {
-            // 1. Very faint fade (long trails)
+            // 1. Faint, dark fade (long but non-saturating trails)
             ctx.globalCompositeOperation = 'source-over';
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.01)';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)'; 
             ctx.fillRect(0, 0, width, height);
             
-            // 2. Draw current video with Lighter blend (Halo/Starburst effect)
+            // 2. Draw the previous frame slightly offset with a screen/lighter blend
             ctx.globalCompositeOperation = 'lighter';
-            ctx.globalAlpha = 0.8;
-            drawVideoFit(ctx, video, width, height);
-
-            // 3. Self-Displacement (Tracers / Motion trails)
-            ctx.globalCompositeOperation = 'screen';
-            ctx.globalAlpha = 0.6;
+            ctx.globalAlpha = 0.5; // Reduced alpha to prevent whiteout
             
-            // Draw the canvas history offset for smearing/trailing
             const trailX = 10 * Math.sin(frameCount * 0.1);
             const trailY = 5 * Math.cos(frameCount * 0.15);
             ctx.drawImage(canvas, trailX, trailY, width, height);
+            
+            // 3. Draw current video frame to ensure the scene is visible
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.globalAlpha = 1.0;
+            drawVideoFit(ctx, video, width, height);
+            
+            // 4. Add a low-opacity, pulsating color overlay for the neon glow
+            ctx.globalCompositeOperation = 'screen';
+            ctx.globalAlpha = 0.3;
+            ctx.fillStyle = `hsla(${(frameCount * 5) % 360}, 100%, 50%, 0.5)`;
+            ctx.fillRect(0, 0, width, height);
 
-            // 4. CSS Filter (Strong neon colors)
-            canvas.style.filter = `hue-rotate(${frameCount * 3}deg) brightness(200%) saturate(300%) invert(10%)`;
+            // 5. CSS Filter
+            canvas.style.filter = `brightness(150%) saturate(250%) hue-rotate(${frameCount * 1.5}deg)`;
         }
 
-        // MODE 3: KALEIDOSCOPE (Radial symmetry without perfect geometry)
+        // MODE 3: KALEIDOSCOPE
         function effectKaleidoscope() {
-            // 1. Faint fade
             ctx.globalCompositeOperation = 'source-over';
             ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
             ctx.fillRect(0, 0, width, height);
             
-            // 2. Draw multiple mirrored/rotated instances
             const pieces = 8;
             const pieceAngle = (2 * PI) / pieces;
             const time = frameCount / 60;
@@ -474,84 +515,70 @@
                 ctx.translate(width / 2, height / 2);
                 ctx.rotate(i * pieceAngle + time * 0.1);
                 
-                // Chaotic scale and wobble
                 const wobble = 0.5 + Math.sin(time * 0.5 + i) * 0.1;
                 ctx.scale(wobble, wobble);
 
-                // Mirror every other piece for kaleidoscope symmetry
                 if (i % 2 === 0) {
                     ctx.scale(-1, 1);
                 }
                 
-                // Draw the video. We translate it back before drawing to cover the view.
                 if (video.readyState >= 2) drawVideoFit(ctx, video, width, height);
                 ctx.restore();
             }
 
-            // 3. CSS Filter
             canvas.style.filter = `hue-rotate(${frameCount}deg) saturate(200%)`;
         }
         
-        // MODE 4: INFINITE TUNNEL (Vortex/Spiral effect)
+        // MODE 4: INFINITE TUNNEL
         function effectInfiniteTunnel() {
-            // 1. Draw previous frame aggressively scaled down (creates the tunnel)
             ctx.globalCompositeOperation = 'source-over';
             ctx.globalAlpha = 1.0;
             ctx.save();
             ctx.translate(width / 2, height / 2);
-            ctx.rotate(frameCount * 0.005); // Continuous, slow spiral
+            ctx.rotate(frameCount * 0.005);
             
-            const scale = 0.96; // Aggressive zoom in
+            const scale = 0.96;
             ctx.scale(scale, scale);
             
             ctx.drawImage(canvas, -width / 2, -height / 2, width, height);
             ctx.restore();
             
-            // 2. Draw current video frame to fill the center hole
             ctx.globalCompositeOperation = 'difference';
             ctx.globalAlpha = 1.0;
             drawVideoFit(ctx, video, width, height);
 
-            // 3. Add pulsating color overlay
             ctx.globalCompositeOperation = 'overlay';
             ctx.fillStyle = `hsla(${frameCount * 2 % 360}, 100%, 50%, 0.2)`;
             ctx.fillRect(0, 0, width, height);
 
-            // 4. CSS Filter
             canvas.style.filter = `contrast(150%) saturate(150%)`;
         }
 
-        // MODE 5: SYNESTHESIA (Seeing sounds / Shifting textures - using random pixel blocks)
+        // MODE 5: SYNESTHESIA
         function effectSynesthesia() {
-            // 1. Draw video frame
             ctx.globalCompositeOperation = 'source-over';
             drawVideoFit(ctx, video, width, height);
             
-            // 2. Read pixels
-            sourceData = ctx.getImageData(0, 0, width, height).data;
+            const sourceData = ctx.getImageData(0, 0, width, height).data;
             const destData = imageData.data;
 
             const time = frameCount / 60;
-            const blockSize = 15 + Math.floor(Math.sin(time * 5) * 10); // Pulsating block size
-            const shiftStrength = 50 + 50 * Math.cos(time * 2); // Pulsating shift strength
+            const blockSize = 15 + Math.floor(Math.sin(time * 5) * 10);
+            const shiftStrength = 50 + 50 * Math.cos(time * 2);
 
             for (let y = 0; y < height; y += blockSize) {
                 for (let x = 0; x < width; x += blockSize) {
-                    // Calculate a distortion offset based on block position (texture shift)
                     const noise = Math.sin(x * 0.05 + time) * Math.cos(y * 0.03 + time * 1.5) * shiftStrength;
 
-                    // Get the average color of the current block
                     const blockI = (y * width + x) * 4;
                     const r_avg = sourceData[blockI];
                     const g_avg = sourceData[blockI + 1];
                     const b_avg = sourceData[blockI + 2];
 
-                    // Draw the entire block
                     for (let blockY = 0; blockY < blockSize && y + blockY < height; blockY++) {
                         for (let blockX = 0; blockX < blockSize && x + blockX < width; blockX++) {
                             const destI = ((y + blockY) * width + (x + blockX)) * 4;
                             
-                            // Apply color shift (like 'hearing colors')
                             const r = Math.min(255, r_avg + noise);
                             const g = Math.min(255, g_avg - noise * 0.5);
                             const b = Math.min(255, b_avg + noise * 0.2);
@@ -566,59 +593,154 @@
             }
             ctx.putImageData(imageData, 0, 0);
 
-            // 3. Faint trailing effect over the top
             ctx.globalCompositeOperation = 'difference';
             ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
             ctx.fillRect(0, 0, width, height);
             
-            // 4. CSS Filter
             canvas.style.filter = `invert(100%) hue-rotate(${frameCount * 0.5}deg) contrast(150%)`;
         }
+
+        const effects = [
+            effectBreathingWall,
+            effectRipplingMelt,
+            effectNeonTracer,
+            effectKaleidoscope,
+            effectInfiniteTunnel,
+            effectSynesthesia
+        ];
 
         function animate() {
             if (!isPaused && video.readyState >= 2) {
                 frameCount++;
-                // Clear CSS filter for a clean base each frame
                 canvas.style.filter = 'none'; 
-
-                switch(currentMode) {
-                    case 0: effectBreathingWall(); break;
-                    case 1: effectRipplingMelt(); break;
-                    case 2: effectNeonTracer(); break;
-                    case 3: effectKaleidoscope(); break;
-                    case 4: effectInfiniteTunnel(); break;
-                    case 5: effectSynesthesia(); break;
-                }
+                effects[currentMode]();
             }
             animationId = requestAnimationFrame(animate);
         }
+        
+        let transitionData = null; // Store image data for the transition effect
+        let transitionStartFrame = 0;
+        const TRANSITION_FRAMES = 60; // Duration of the transition in frames (~1 sec)
+        let nextMode = -1;
 
-        function setMode(mode) {
-            currentMode = mode;
+        function smoothTransitionMode() {
+            if (transitionStartFrame === 0) return; // Not in transition
+
+            const currentFrame = frameCount - transitionStartFrame;
+            const progress = currentFrame / TRANSITION_FRAMES;
+
+            if (progress >= 1) {
+                // Transition finished
+                transitionStartFrame = 0;
+                transitionData = null;
+                currentMode = nextMode;
+                nextMode = -1;
+                canvas.style.opacity = 1.0;
+                return;
+            }
+
+            // 1. Draw the video frame to get a clean base for the target effect
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.globalAlpha = 1.0;
+            drawVideoFit(ctx, video, width, height);
+            
+            // 2. Store the current frame's output
+            const currentFrameData = ctx.getImageData(0, 0, width, height);
+            
+            // 3. Apply the NEW effect (but we'll mix it with the old)
+            // Temporarily set the mode to the target mode
+            const tempMode = currentMode;
+            currentMode = nextMode;
+            effects[currentMode]();
+            const nextFrameData = ctx.getImageData(0, 0, width, height);
+            currentMode = tempMode; // Reset mode to continue with the current effect logic
+            
+            // 4. Mix the old (transitionData) and new (nextFrameData)
+            const oldPixels = transitionData.data;
+            const newPixels = nextFrameData.data;
+            const finalPixels = nextFrameData.data; // Overwrite new data in place
+            const mixFactor = Math.sin(progress * PI); // A smooth in/out curve
+
+            for (let i = 0; i < finalPixels.length; i += 4) {
+                const r_old = oldPixels[i];
+                const g_old = oldPixels[i + 1];
+                const b_old = oldPixels[i + 2];
+
+                const r_new = newPixels[i];
+                const g_new = newPixels[i + 1];
+                const b_new = newPixels[i + 2];
+                
+                // Final mix: Mix old and new frames
+                finalPixels[i] = Math.round(r_old * (1 - mixFactor) + r_new * mixFactor);
+                finalPixels[i + 1] = Math.round(g_old * (1 - mixFactor) + g_new * mixFactor);
+                finalPixels[i + 2] = Math.round(b_old * (1 - mixFactor) + b_new * mixFactor);
+            }
+            
+            ctx.putImageData(nextFrameData, 0, 0);
+
+            // Optional: CSS Fade transition (visual blink)
+            canvas.style.opacity = 1.0 - progress * 0.1; 
+        }
+
+        function setMode(mode, fromRandom = false) {
+            // Stop Random Mode if a button is manually pressed
+            if (!fromRandom && isRandomMode) {
+                toggleRandomMode();
+            }
+
+            // Start a smooth transition to the new mode
+            if (currentMode !== mode) {
+                transitionData = ctx.getImageData(0, 0, width, height); // Capture current frame
+                transitionStartFrame = frameCount;
+                nextMode = mode;
+                
+                // The main animate loop will handle the transition until it's done
+            }
+            
+            // Update button states immediately (the actual mode change will wait for transition)
             for(let i=0; i<MODE_COUNT; i++) {
                 const btn = document.getElementById(`btn${i}`);
                 if (btn) btn.classList.remove('active');
             }
             document.getElementById(`btn${mode}`).classList.add('active');
+        }
+
+        function toggleRandomMode() {
+            isRandomMode = !isRandomMode;
             
-            // Clear canvas and set filter to none when switching modes
-            ctx.globalCompositeOperation = 'source-over';
-            ctx.fillStyle = 'black';
-            ctx.fillRect(0,0,width,height);
-            canvas.style.filter = 'none';
+            if (isRandomMode) {
+                btnRandom.classList.add('random-active');
+                
+                // Select a random initial mode
+                const initialMode = Math.floor(Math.random() * MODE_COUNT);
+                setMode(initialMode, true); 
+                
+                const intervalDuration = Math.random() * (10000 - 5000) + 5000; // 5 to 10 seconds
+                randomInterval = setInterval(() => {
+                    let newMode = currentMode;
+                    // Ensure the next mode is different
+                    while (newMode === currentMode || newMode === nextMode) {
+                        newMode = Math.floor(Math.random() * MODE_COUNT);
+                    }
+                    setMode(newMode, true);
+                }, intervalDuration);
+
+            } else {
+                // Stop the loop
+                clearInterval(randomInterval);
+                randomInterval = null;
+                btnRandom.classList.remove('random-active');
+                // The current mode remains the last one displayed
+            }
         }
 
         function togglePause() {
             isPaused = !isPaused;
             const btn = document.getElementById('pauseBtn');
             btn.innerText = isPaused ? "Resume" : "Freeze";
-            if (isPaused) {
-                btn.style.background = "red";
-                btn.style.borderColor = "red";
-            } else {
-                btn.style.background = "transparent";
-                btn.style.borderColor = "#fff";
-            }
+            btn.classList.toggle('active', isPaused);
+            btn.style.background = isPaused ? "red" : "transparent";
+            btn.style.borderColor = isPaused ? "red" : "#fff";
         }
 
         function saveImage() {
@@ -627,6 +749,17 @@
             link.href = canvas.toDataURL();
             link.click();
         }
+        
+        // Override the main animation loop to handle the transition
+        const originalAnimate = animate;
+        animate = function() {
+            if (transitionStartFrame !== 0) {
+                smoothTransitionMode();
+            } else {
+                originalAnimate();
+            }
+            animationId = requestAnimationFrame(animate);
+        };
     </script>
 </body>
 </html>
