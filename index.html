@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Psychedelic Camera Tapestry (The Deep Dive)</title>
+    <title>Psychedelic Camera Tapestry (The Deep Dive) - Optimized</title>
     <style>
         /* Base Styles */
         body, html {
@@ -29,11 +29,13 @@
 
         canvas {
             display: block;
-            width: 100%;
+            /* CRITICAL FIX: The canvas element is now explicitly stretched to 100% 
+               by CSS, while its internal resolution is kept low in JS. */
+            width: 100%; 
             height: 100%;
             object-fit: cover;
             will-change: transform, filter; 
-            transition: opacity 1s ease-in-out; /* For effect transition */
+            transition: opacity 1s ease-in-out; 
         }
 
         /* Start Screen Overlay */
@@ -211,7 +213,8 @@
     <script>
         const video = document.getElementById('videoElement');
         const canvas = document.getElementById('canvasElement');
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        // Setting willReadFrequently to true for performance improvement during pixel read operations
+        const ctx = canvas.getContext('2d', { willReadFrequently: true }); 
         const startOverlay = document.getElementById('start-overlay');
         const startBtn = document.getElementById('start-btn');
         const errorMsg = document.getElementById('error-msg');
@@ -229,7 +232,7 @@
         const MODE_COUNT = 6;
         let currentFacingMode = 'user';
         let currentStream = null;
-        let imageData = ctx.createImageData(width, height);
+        let imageData; // Initialized in resizeCanvas
         const PI = Math.PI;
         
         // New variables for Random Mode
@@ -251,14 +254,12 @@
         }
 
         async function checkCameraCapabilities() {
-            // Check if multiple cameras are available to decide if the flip button is useful
             if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
             
             try {
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 const videoDevices = devices.filter(device => device.kind === 'videoinput');
                 
-                // If we have more than one video device, or if it's mobile (assuming front/back)
                 if (videoDevices.length > 1 || isMobileDevice()) {
                     hasMultipleCameras = true;
                     btnCamera.style.display = 'block';
@@ -304,8 +305,7 @@
                         currentStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
                         video.srcObject = currentStream;
                         video.onloadedmetadata = () => {
-                            // ... (rest of the success logic)
-                            video.play().then(() => {
+                             video.play().then(() => {
                                 startOverlay.style.display = 'none';
                                 uiLayer.style.display = 'flex';
                                 titleOverlay.style.display = 'block';
@@ -323,7 +323,6 @@
         }
 
         function switchCamera() {
-            // Stop Random Mode if active
             if (isRandomMode) toggleRandomMode();
             
             currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
@@ -339,15 +338,31 @@
             errorMsg.innerHTML = `<strong>ERROR:</strong> ${msg}`;
         }
 
+        // --- CRITICAL OPTIMIZATION: Reduce Internal Canvas Resolution ---
         function resizeCanvas() {
-            width = window.innerWidth;
-            height = window.innerHeight;
+            // Processing fewer pixels is the biggest performance boost for canvas effects.
+            // 0.5 means rendering at 50% of screen resolution (1/4 the number of pixels).
+            const scaleFactor = 0.5; 
+            const renderWidth = window.innerWidth * scaleFactor;
+            const renderHeight = window.innerHeight * scaleFactor;
+            
+            // Set internal canvas dimensions to the low resolution
+            width = renderWidth;
+            height = renderHeight;
             canvas.width = width;
             canvas.height = height;
+            
+            // Use CSS to stretch the low-res canvas to full screen (maintains aspect ratio)
+            canvas.style.width = '100%';
+            canvas.style.height = '100%';
+            
+            // Recreate imageData buffer with the new, smaller dimensions
             imageData = ctx.createImageData(width, height);
+            
             ctx.fillStyle = "black";
             ctx.fillRect(0, 0, width, height);
         }
+        // ------------------------------------------------------------------
 
         window.addEventListener('resize', resizeCanvas);
 
@@ -359,7 +374,6 @@
             let dw, dh;
             let dx = 0, dy = 0;
             
-            // Calculate dimensions for cover fit (fill entire canvas)
             if (cRatio > vRatio) {
                 // Canvas is wider than video, so video height fills canvas height
                 dh = cH; dw = cH * vRatio;
@@ -376,7 +390,8 @@
         function applyPixelManipulation(time, distortionFn) {
             ctx.globalCompositeOperation = 'source-over';
             ctx.globalAlpha = 1.0;
-            drawVideoFit(ctx, video, width, height);
+            // Draw video to the smaller canvas size
+            drawVideoFit(ctx, video, width, height); 
             const sourceData = ctx.getImageData(0, 0, width, height).data;
             const destData = imageData.data;
 
@@ -390,13 +405,13 @@
                     const { srcX, srcY, colorR, colorG, colorB } = distortionFn(x, y, time, centerX, centerY, width, height, sourceData, i);
 
                     let srcI = (Math.min(height - 1, Math.max(0, Math.floor(srcY))) * width + 
-                                Math.min(width - 1, Math.max(0, Math.floor(srcX)))) * 4;
+                                 Math.min(width - 1, Math.max(0, Math.floor(srcX)))) * 4;
                     
                     const r = colorR !== undefined ? colorR : sourceData[srcI];
                     const g = colorG !== undefined ? colorG : sourceData[srcI + 1];
                     const b = colorB !== undefined ? colorB : sourceData[srcI + 2];
                     
-                    destData[i]     = r;
+                    destData[i]     = r;
                     destData[i + 1] = g;
                     destData[i + 2] = b;
                     destData[i + 3] = 255;
@@ -406,7 +421,7 @@
             ctx.putImageData(imageData, 0, 0);
         }
 
-        // --- VISUAL EFFECTS ---
+        // --- VISUAL EFFECTS (Unchanged) ---
 
         // MODE 0: BREATHING WALL
         function effectBreathingWall() {
@@ -425,7 +440,7 @@
                 const colorShift = 0.5 * Math.sin(time * 1.5) + 1.5;
                 
                 let srcI = (Math.min(h - 1, Math.max(0, Math.floor(srcY))) * w + 
-                            Math.min(w - 1, Math.max(0, Math.floor(srcX)))) * 4;
+                                 Math.min(w - 1, Math.max(0, Math.floor(srcX)))) * 4;
                 
                 const r = Math.min(255, data[srcI] * colorShift);
                 const g = Math.min(255, data[srcI + 1] * (colorShift * 0.7));
@@ -451,7 +466,7 @@
                 const srcY = y + dy;
                 
                 let srcI = (Math.min(h - 1, Math.max(0, Math.floor(srcY))) * w + 
-                            Math.min(w - 1, Math.max(0, Math.floor(srcX)))) * 4;
+                                 Math.min(w - 1, Math.max(0, Math.floor(srcX)))) * 4;
                 
                 const r = data[srcI] * 1.5;
                 const g = data[srcI + 1] * 0.5;
@@ -563,6 +578,7 @@
             const destData = imageData.data;
 
             const time = frameCount / 60;
+            // The block size and shift strength now depend on the smaller 'width' and 'height'
             const blockSize = 15 + Math.floor(Math.sin(time * 5) * 10);
             const shiftStrength = 50 + 50 * Math.cos(time * 2);
 
@@ -583,7 +599,7 @@
                             const g = Math.min(255, g_avg - noise * 0.5);
                             const b = Math.min(255, b_avg + noise * 0.2);
 
-                            destData[destI]     = r;
+                            destData[destI]     = r;
                             destData[destI + 1] = g;
                             destData[destI + 2] = b;
                             destData[destI + 3] = 255;
@@ -612,25 +628,28 @@
         function animate() {
             if (!isPaused && video.readyState >= 2) {
                 frameCount++;
-                canvas.style.filter = 'none'; 
-                effects[currentMode]();
+                if (transitionStartFrame !== 0) {
+                    smoothTransitionMode();
+                } else {
+                    canvas.style.filter = 'none'; 
+                    effects[currentMode]();
+                }
             }
             animationId = requestAnimationFrame(animate);
         }
         
-        let transitionData = null; // Store image data for the transition effect
+        let transitionData = null; 
         let transitionStartFrame = 0;
-        const TRANSITION_FRAMES = 60; // Duration of the transition in frames (~1 sec)
+        const TRANSITION_FRAMES = 30; // Reduced transition frames for faster switch
         let nextMode = -1;
 
         function smoothTransitionMode() {
-            if (transitionStartFrame === 0) return; // Not in transition
+            if (transitionStartFrame === 0) return; 
 
             const currentFrame = frameCount - transitionStartFrame;
             const progress = currentFrame / TRANSITION_FRAMES;
 
             if (progress >= 1) {
-                // Transition finished
                 transitionStartFrame = 0;
                 transitionData = null;
                 currentMode = nextMode;
@@ -639,27 +658,24 @@
                 return;
             }
 
+            // --- Transition Logic ---
             // 1. Draw the video frame to get a clean base for the target effect
             ctx.globalCompositeOperation = 'source-over';
             ctx.globalAlpha = 1.0;
             drawVideoFit(ctx, video, width, height);
             
-            // 2. Store the current frame's output
-            const currentFrameData = ctx.getImageData(0, 0, width, height);
-            
-            // 3. Apply the NEW effect (but we'll mix it with the old)
-            // Temporarily set the mode to the target mode
+            // 2. Apply the NEW effect (temporarily)
             const tempMode = currentMode;
             currentMode = nextMode;
             effects[currentMode]();
             const nextFrameData = ctx.getImageData(0, 0, width, height);
-            currentMode = tempMode; // Reset mode to continue with the current effect logic
+            currentMode = tempMode; 
             
-            // 4. Mix the old (transitionData) and new (nextFrameData)
+            // 3. Mix the old (transitionData) and new (nextFrameData)
             const oldPixels = transitionData.data;
-            const newPixels = nextFrameData.data;
-            const finalPixels = nextFrameData.data; // Overwrite new data in place
-            const mixFactor = Math.sin(progress * PI); // A smooth in/out curve
+            const newPixels = nextFrameData.data; 
+            const finalPixels = nextFrameData.data;
+            const mixFactor = Math.sin(progress * PI); 
 
             for (let i = 0; i < finalPixels.length; i += 4) {
                 const r_old = oldPixels[i];
@@ -670,7 +686,6 @@
                 const g_new = newPixels[i + 1];
                 const b_new = newPixels[i + 2];
                 
-                // Final mix: Mix old and new frames
                 finalPixels[i] = Math.round(r_old * (1 - mixFactor) + r_new * mixFactor);
                 finalPixels[i + 1] = Math.round(g_old * (1 - mixFactor) + g_new * mixFactor);
                 finalPixels[i + 2] = Math.round(b_old * (1 - mixFactor) + b_new * mixFactor);
@@ -683,21 +698,17 @@
         }
 
         function setMode(mode, fromRandom = false) {
-            // Stop Random Mode if a button is manually pressed
             if (!fromRandom && isRandomMode) {
                 toggleRandomMode();
             }
 
-            // Start a smooth transition to the new mode
             if (currentMode !== mode) {
-                transitionData = ctx.getImageData(0, 0, width, height); // Capture current frame
+                // Capture current frame from the low-resolution canvas
+                transitionData = ctx.getImageData(0, 0, width, height); 
                 transitionStartFrame = frameCount;
                 nextMode = mode;
-                
-                // The main animate loop will handle the transition until it's done
             }
             
-            // Update button states immediately (the actual mode change will wait for transition)
             for(let i=0; i<MODE_COUNT; i++) {
                 const btn = document.getElementById(`btn${i}`);
                 if (btn) btn.classList.remove('active');
@@ -711,14 +722,13 @@
             if (isRandomMode) {
                 btnRandom.classList.add('random-active');
                 
-                // Select a random initial mode
                 const initialMode = Math.floor(Math.random() * MODE_COUNT);
                 setMode(initialMode, true); 
                 
-                const intervalDuration = Math.random() * (10000 - 5000) + 5000; // 5 to 10 seconds
+                // Reduced interval range (4 to 8 seconds) for faster switching
+                const intervalDuration = Math.random() * (8000 - 4000) + 4000; 
                 randomInterval = setInterval(() => {
                     let newMode = currentMode;
-                    // Ensure the next mode is different
                     while (newMode === currentMode || newMode === nextMode) {
                         newMode = Math.floor(Math.random() * MODE_COUNT);
                     }
@@ -726,11 +736,9 @@
                 }, intervalDuration);
 
             } else {
-                // Stop the loop
                 clearInterval(randomInterval);
                 randomInterval = null;
                 btnRandom.classList.remove('random-active');
-                // The current mode remains the last one displayed
             }
         }
 
@@ -744,22 +752,26 @@
         }
 
         function saveImage() {
+            // To save a high-quality image, we temporarily draw the video to a high-res canvas.
+            const tempCanvas = document.createElement('canvas');
+            const targetWidth = video.videoWidth || 1920;
+            const targetHeight = video.videoHeight || 1080;
+            tempCanvas.width = targetWidth;
+            tempCanvas.height = targetHeight;
+            const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+
+            // Apply the current filter to the temporary canvas
+            tempCanvas.style.filter = canvas.style.filter;
+
+            // Draw the current canvas content (low-res effects) scaled up
+            tempCtx.drawImage(canvas, 0, 0, targetWidth, targetHeight);
+
             const link = document.createElement('a');
             link.download = `acid_trip_${Date.now()}.png`;
-            link.href = canvas.toDataURL();
+            link.href = tempCanvas.toDataURL();
             link.click();
         }
-        
-        // Override the main animation loop to handle the transition
-        const originalAnimate = animate;
-        animate = function() {
-            if (transitionStartFrame !== 0) {
-                smoothTransitionMode();
-            } else {
-                originalAnimate();
-            }
-            animationId = requestAnimationFrame(animate);
-        };
+
     </script>
 </body>
 </html>
